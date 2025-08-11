@@ -6,6 +6,7 @@
 *.npy*
 *.txt
 *.out
+setup-claude.sh
 
 output/
 result_repo/
