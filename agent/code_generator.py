@@ -10,6 +10,7 @@ import ast
 from typing import Dict, Any, List, Optional
 from .base import BaseAgent, CodeGenerationError, ValidationError
 from .openai_client import OpenAIClient
+from .easytrans_client import EasyTransClient
 
 
 class CodeGenerator(BaseAgent):
@@ -17,11 +18,22 @@ class CodeGenerator(BaseAgent):
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        self.openai_client = OpenAIClient(
-            api_key=config.get('openai_api_key'),
-            base_url=config.get('openai_base_url')
-        )
-        self.model = config.get('model', 'gpt-3.5-turbo')
+        
+        # 检查使用哪种API
+        self.api_provider = config.get('api_provider', 'openai').lower()
+        
+        if self.api_provider == 'easytrans':
+            self.client = EasyTransClient(
+                api_key=config.get('api_key') or config.get('easytrans_api_key'),
+                base_url=config.get('base_url') or config.get('easytrans_base_url')
+            )
+            self.model = config.get('model', 'gemini-2.5-pro')
+        else:  # 默认使用 OpenAI
+            self.client = OpenAIClient(
+                api_key=config.get('api_key') or config.get('openai_api_key'),
+                base_url=config.get('base_url') or config.get('openai_base_url')
+            )
+            self.model = config.get('model', 'gpt-3.5-turbo')
     
     def _get_code_generation_functions(self) -> List[Dict[str, Any]]:
         """获取代码生成的函数定义"""
@@ -93,6 +105,98 @@ class CodeGenerator(BaseAgent):
         
         return base_prompt
     
+    def _call_easytrans_api(self, messages: List[Dict[str, str]], prompt: str) -> Dict[str, Any]:
+        """
+        调用极易云 API - 根据模型类型自动选择合适的 API
+        
+        Args:
+            messages: 消息列表
+            prompt: 提示文本
+            
+        Returns:
+            API 响应结果
+        """
+        try:
+            # Claude 系列模型使用 Messages API
+            if 'claude' in self.model.lower():
+                self.logger.info(f"检测到 Claude 模型 {self.model}，使用 Messages API")
+                response = self.client.messages(
+                    messages=messages,
+                    model=self.model,
+                    max_tokens=4000,  # Claude 需要设置 max_tokens
+                    temperature=0.1
+                )
+                
+                if self.client.validate_response(response):
+                    return response
+            
+            # O3 系列模型优先使用 Responses API
+            elif 'o3' in self.model.lower():
+                self.logger.info(f"检测到 O3 模型 {self.model}，使用 Responses API")
+                response = self.client.responses(
+                    input_text=prompt,
+                    model=self.model
+                )
+                
+                if self.client.validate_response(response):
+                    return response
+            
+            else:
+                # 其他模型（GPT、Gemini）使用对话补全 API
+                self.logger.info(f"使用对话补全 API，模型: {self.model}")
+                response = self.client.chat_completion(
+                    messages=messages,
+                    model=self.model,
+                    temperature=0.1
+                )
+                
+                if self.client.validate_response(response):
+                    return response
+            
+            # 如果首选 API 失败，尝试备用方案
+            self.logger.warning("首选 API 失败，尝试备用方案")
+            
+            # 备用方案1: 尝试 Responses API
+            try:
+                backup_model = self.model
+                if 'claude' in self.model.lower():
+                    backup_model = 'o3-pro-2025-06-10'  # Claude 降级到 O3
+                elif 'gemini' in self.model.lower():
+                    backup_model = 'o3-pro-2025-06-10'  # Gemini 降级到 O3
+                
+                response = self.client.responses(
+                    input_text=prompt,
+                    model=backup_model
+                )
+                
+                if self.client.validate_response(response):
+                    self.logger.info(f"备用方案成功，使用模型: {backup_model}")
+                    return response
+                    
+            except Exception as backup_e:
+                self.logger.warning(f"备用方案失败: {backup_e}")
+            
+            # 备用方案2: 尝试基础的对话补全 API
+            try:
+                response = self.client.chat_completion(
+                    messages=messages,
+                    model='gemini-2.5-pro',  # 使用稳定的基础模型
+                    temperature=0.1
+                )
+                
+                if self.client.validate_response(response):
+                    self.logger.info("使用基础模型成功")
+                    return response
+                    
+            except Exception as final_e:
+                self.logger.error(f"所有备用方案都失败: {final_e}")
+            
+            raise CodeGenerationError("所有 API 调用方案都失败")
+            
+        except Exception as e:
+            self.logger.error(f"极易云 API 调用失败: {e}")
+            raise CodeGenerationError(f"极易云 API 调用失败: {e}")
+    
     def generate_code(self, template_data: Dict[str, Any], code_type: str = "generic") -> str:
         """
         生成代码
@@ -114,32 +218,45 @@ class CodeGenerator(BaseAgent):
                 }
             ]
             
-            functions = self._get_code_generation_functions()
-            
-            response = self.openai_client.chat_completion(
-                messages=messages,
-                model=self.model,
-                temperature=0.1,
-                functions=functions,
-                function_call={"name": "generate_python_code"}
-            )
-            
-            if not self.openai_client.validate_response(response):
-                raise CodeGenerationError("LLM 响应无效")
-            
-            function_call = self.openai_client.extract_function_call(response)
-            if not function_call:
-                raise CodeGenerationError("未获取到函数调用")
-            
-            # 解析函数参数
-            try:
-                arguments = json.loads(function_call['arguments'])
-            except json.JSONDecodeError as e:
-                raise CodeGenerationError(f"解析函数参数失败: {e}")
-            
-            generated_code = arguments.get('code', '')
-            if not generated_code:
-                raise CodeGenerationError("生成的代码为空")
+            # 根据API提供商调用不同的接口
+            if self.api_provider == 'easytrans':
+                # 极易云 API 调用
+                response = self._call_easytrans_api(messages, prompt)
+                generated_code = self.client.extract_content(response)
+                if not generated_code:
+                    raise CodeGenerationError("生成的代码为空")
+                
+                # 记录生成信息
+                self.logger.info(f"代码生成成功，类型: {code_type}")
+                arguments = {"imports": [], "description": f"Generated {code_type} code"}
+            else:
+                # OpenAI API 调用 (支持 Function Calling)
+                functions = self._get_code_generation_functions()
+                
+                response = self.client.chat_completion(
+                    messages=messages,
+                    model=self.model,
+                    temperature=0.1,
+                    functions=functions,
+                    function_call={"name": "generate_python_code"}
+                )
+                
+                if not self.client.validate_response(response):
+                    raise CodeGenerationError("LLM 响应无效")
+                
+                function_call = self.client.extract_function_call(response)
+                if not function_call:
+                    raise CodeGenerationError("未获取到函数调用")
+                
+                # 解析函数参数
+                try:
+                    arguments = json.loads(function_call['arguments'])
+                except json.JSONDecodeError as e:
+                    raise CodeGenerationError(f"解析函数参数失败: {e}")
+                
+                generated_code = arguments.get('code', '')
+                if not generated_code:
+                    raise CodeGenerationError("生成的代码为空")
             
             # 记录生成信息
             self.logger.info(f"代码生成成功，类型: {code_type}")
