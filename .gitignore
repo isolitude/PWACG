@@ -8,6 +8,8 @@
 *.out
 setup-claude.sh
 CLAUDE.md
+test*.py
+debug*.py
 
 output/
 result_repo/

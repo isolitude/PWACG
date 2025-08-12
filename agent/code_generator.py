@@ -69,7 +69,28 @@ class CodeGenerator(BaseAgent):
     
     def _build_prompt(self, template_data: Dict[str, Any], code_type: str) -> str:
         """构建生成代码的提示"""
-        base_prompt = f"""
+        # 根据API提供商构建不同的提示
+        if hasattr(self, 'api_provider') and self.api_provider == 'easytrans':
+            # 极易云API: 直接要求返回代码，不使用Function Calling
+            base_prompt = f"""
+你是一个专业的 Python 代码生成器，需要根据提供的配置数据生成 {code_type} 类型的代码。
+
+配置数据：
+{json.dumps(template_data, indent=2, ensure_ascii=False)}
+
+要求：
+1. 生成的代码必须是完整的、可执行的 Python 脚本
+2. 代码风格要整洁，遵循 PEP8 规范
+3. 包含必要的导入语句
+4. 添加适当的注释和文档字符串
+5. 处理可能的异常情况
+6. 使用提供的配置数据填充模板变量
+
+请直接返回生成的Python代码，不需要其他解释。
+"""
+        else:
+            # OpenAI API: 使用Function Calling
+            base_prompt = f"""
 你是一个专业的 Python 代码生成器，需要根据提供的配置数据生成 {code_type} 类型的代码。
 
 配置数据：
@@ -105,6 +126,32 @@ class CodeGenerator(BaseAgent):
         
         return base_prompt
     
+    def _clean_code_format(self, code: str) -> str:
+        """
+        清理代码格式，移除 Markdown 代码块标记和多余的格式化
+        
+        Args:
+            code: 原始代码字符串
+            
+        Returns:
+            清理后的代码字符串
+        """
+        # 移除开头的 ```python 或 ``` 标记
+        lines = code.strip().split('\n')
+        
+        # 移除开头的代码块标记
+        if lines and lines[0].strip().startswith('```'):
+            lines = lines[1:]
+        
+        # 移除结尾的代码块标记
+        if lines and lines[-1].strip() == '```':
+            lines = lines[:-1]
+        
+        # 重新组合代码
+        cleaned_code = '\n'.join(lines).strip()
+        
+        return cleaned_code
+    
     def _call_easytrans_api(self, messages: List[Dict[str, str]], prompt: str) -> Dict[str, Any]:
         """
         调用极易云 API - 根据模型类型自动选择合适的 API
@@ -123,12 +170,9 @@ class CodeGenerator(BaseAgent):
                 response = self.client.messages(
                     messages=messages,
                     model=self.model,
-                    max_tokens=4000,  # Claude 需要设置 max_tokens
-                    temperature=0.1
+                    max_tokens=4000  # Claude 需要设置 max_tokens，但不支持 temperature
                 )
-                
-                if self.client.validate_response(response):
-                    return response
+                return response
             
             # O3 系列模型优先使用 Responses API
             elif 'o3' in self.model.lower():
@@ -137,9 +181,7 @@ class CodeGenerator(BaseAgent):
                     input_text=prompt,
                     model=self.model
                 )
-                
-                if self.client.validate_response(response):
-                    return response
+                return response
             
             else:
                 # 其他模型（GPT、Gemini）使用对话补全 API
@@ -147,51 +189,10 @@ class CodeGenerator(BaseAgent):
                 response = self.client.chat_completion(
                     messages=messages,
                     model=self.model,
-                    temperature=0.1
+                    temperature=0.1,
+                    max_tokens=4000  # 增加 token 限制以避免截断
                 )
-                
-                if self.client.validate_response(response):
-                    return response
-            
-            # 如果首选 API 失败，尝试备用方案
-            self.logger.warning("首选 API 失败，尝试备用方案")
-            
-            # 备用方案1: 尝试 Responses API
-            try:
-                backup_model = self.model
-                if 'claude' in self.model.lower():
-                    backup_model = 'o3-pro-2025-06-10'  # Claude 降级到 O3
-                elif 'gemini' in self.model.lower():
-                    backup_model = 'o3-pro-2025-06-10'  # Gemini 降级到 O3
-                
-                response = self.client.responses(
-                    input_text=prompt,
-                    model=backup_model
-                )
-                
-                if self.client.validate_response(response):
-                    self.logger.info(f"备用方案成功，使用模型: {backup_model}")
-                    return response
-                    
-            except Exception as backup_e:
-                self.logger.warning(f"备用方案失败: {backup_e}")
-            
-            # 备用方案2: 尝试基础的对话补全 API
-            try:
-                response = self.client.chat_completion(
-                    messages=messages,
-                    model='gemini-2.5-pro',  # 使用稳定的基础模型
-                    temperature=0.1
-                )
-                
-                if self.client.validate_response(response):
-                    self.logger.info("使用基础模型成功")
-                    return response
-                    
-            except Exception as final_e:
-                self.logger.error(f"所有备用方案都失败: {final_e}")
-            
-            raise CodeGenerationError("所有 API 调用方案都失败")
+                return response
             
         except Exception as e:
             self.logger.error(f"极易云 API 调用失败: {e}")
@@ -220,11 +221,34 @@ class CodeGenerator(BaseAgent):
             
             # 根据API提供商调用不同的接口
             if self.api_provider == 'easytrans':
-                # 极易云 API 调用
-                response = self._call_easytrans_api(messages, prompt)
-                generated_code = self.client.extract_content(response)
+                # 极易云 API 调用 - 支持重试机制
+                max_retries = 3
+                generated_code = ""
+                
+                for attempt in range(max_retries):
+                    try:
+                        response = self._call_easytrans_api(messages, prompt)
+                        generated_code = self.client.extract_content(response)
+                        
+                        # 清理代码格式（移除 Markdown 代码块标记）
+                        if generated_code:
+                            generated_code = self._clean_code_format(generated_code)
+                        
+                        if generated_code and len(generated_code.strip()) > 20:  # 确保有足够的内容
+                            break
+                        elif attempt < max_retries - 1:
+                            self.logger.warning(f"第 {attempt + 1} 次尝试生成的代码太短或为空，重试...")
+                            continue
+                        
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            self.logger.warning(f"第 {attempt + 1} 次 API 调用失败，重试: {e}")
+                            continue
+                        else:
+                            raise
+                
                 if not generated_code:
-                    raise CodeGenerationError("生成的代码为空")
+                    raise CodeGenerationError("多次尝试后生成的代码仍为空")
                 
                 # 记录生成信息
                 self.logger.info(f"代码生成成功，类型: {code_type}")
