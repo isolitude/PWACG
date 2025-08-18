@@ -23,8 +23,7 @@ def test_easytrans_basic():
     # 极易云配置
     config = {
         'api_provider': 'easytrans',  # 指定使用极易云
-        'api_key': 'example-key',  # 极易云API密钥
-        'model': 'gemini-2.5-pro',  # 使用Gemini模型
+        'model': 'gemini-2.5-pro-stable',  # 使用Gemini模型
         'base_url': 'https://api.easytransnote.com/v1'  # 可选，默认就是这个
     }
     
@@ -34,7 +33,7 @@ def test_easytrans_basic():
         # 测试数据
         template_data = {
             "module_name": "test_fit",
-            "data_path": "/path/to/data",
+            "data_path": "/home/sean/workspace/PWACG/data",
             "parameters": {"max_iterations": 1000}
         }
         
@@ -67,7 +66,6 @@ def test_easytrans_full_workflow():
     # 极易云Agent配置
     agent_config = {
         'api_provider': 'easytrans',
-        'api_key': 'sk-v1-4AZX-WT7NBe+1tpuzCVaV5ObJ7w-/obBkWCB',
         'model': 'gemini-2.5-pro'
     }
     
@@ -131,57 +129,6 @@ def test_different_models():
             print(f"✗ {model} 测试失败: {e}")
 
 
-def show_usage_examples():
-    """显示使用示例"""
-    print("\n=== 极易云使用示例 ===")
-    
-    examples = {
-        "Gemini模型配置（对话补全API）": {
-            'api_provider': 'easytrans',
-            'api_key': 'your-easytrans-api-key',
-            'model': 'gemini-2.5-pro'
-        },
-        
-        "GPT-4o模型配置（对话补全API）": {
-            'api_provider': 'easytrans', 
-            'api_key': 'your-easytrans-api-key',
-            'model': 'gpt-4o'
-        },
-        
-        "O3 Pro模型配置（响应API）": {
-            'api_provider': 'easytrans',
-            'api_key': 'your-easytrans-api-key', 
-            'model': 'o3-pro-2025-06-10'
-        },
-        
-        "Claude Opus配置（消息API）": {
-            'api_provider': 'easytrans',
-            'api_key': 'your-easytrans-api-key',
-            'model': 'claude-opus-4-20250514'
-        },
-        
-        "Claude Sonnet配置（消息API）": {
-            'api_provider': 'easytrans',
-            'api_key': 'your-easytrans-api-key',
-            'model': 'claude-sonnet-4-20250514'
-        },
-        
-        "环境变量配置": {
-            'api_provider': 'easytrans',
-            # API密钥从环境变量 EASYTRANS_API_KEY 读取
-            'model': 'gemini-2.5-pro'
-        }
-    }
-    
-    for name, config in examples.items():
-        print(f"\n{name}:")
-        print(json.dumps(config, indent=2, ensure_ascii=False))
-    
-    print("\n环境变量设置:")
-    print("export EASYTRANS_API_KEY='your-easytrans-api-key'")
-    print("export EASYTRANS_BASE_URL='https://api.easytransnote.com/v1'  # 可选")
-
-
 def main():
     """主函数"""
     print("极易云开放平台 Agent 使用示例")
@@ -199,10 +146,10 @@ def main():
     results = []
     
     # 基本功能测试
-    results.append(("基本功能测试", test_easytrans_basic()))
+    # results.append(("基本功能测试", test_easytrans_basic()))
     
-    # 不同模型测试
-    results.append(("不同模型测试", test_different_models()))
+    # # 不同模型测试
+    # results.append(("不同模型测试", test_different_models()))
     
     # 完整工作流程测试（需要配置文件）
     if os.path.exists("config/generator_kk.json"):
@@ -219,9 +166,6 @@ def main():
         status = "✓ 通过" if result else "✗ 失败"
         print(f"{test_name:<20} {status}")
     
-    print("\n使用示例:")
-    show_usage_examples()
-
 
 if __name__ == "__main__":
     main()

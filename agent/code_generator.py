@@ -170,7 +170,7 @@ class CodeGenerator(BaseAgent):
                 response = self.client.messages(
                     messages=messages,
                     model=self.model,
-                    max_tokens=4000  # Claude 需要设置 max_tokens，但不支持 temperature
+                    max_tokens=4000000  # Claude 需要设置 max_tokens，但不支持 temperature
                 )
                 return response
             
@@ -190,7 +190,7 @@ class CodeGenerator(BaseAgent):
                     messages=messages,
                     model=self.model,
                     temperature=0.1,
-                    max_tokens=4000  # 增加 token 限制以避免截断
+                    max_tokens=4000000  # 增加 token 限制以避免截断
                 )
                 return response
             

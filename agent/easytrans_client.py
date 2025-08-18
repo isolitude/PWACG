@@ -82,7 +82,7 @@ class EasyTransClient:
             "messages": messages,
             "temperature": temperature,
             "stream": stream,
-            "max_tokens": max_tokens or 2000  # 极易云需要显式设置 max_tokens
+            "max_tokens": max_tokens or 4000000  # 极易云需要显式设置 max_tokens
         }
         
         # 处理 function calling（如果极易云支持的话）
@@ -151,7 +151,7 @@ class EasyTransClient:
         self,
         messages: List[Dict[str, str]],
         model: str = "claude-opus-4-20250514",
-        max_tokens: int = 1024,
+        max_tokens: int = 4000000,
         stream: bool = False,
         system: Optional[str] = None
     ) -> Dict[str, Any]:

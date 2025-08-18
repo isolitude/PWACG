@@ -7,5 +7,7 @@
 
 if __name__ == "__main__":
     # 直接导入和运行
+    import os
+    os.environ['EASYTRANS_API_KEY'] = 'mykey' 
     from agent.easytrans_example import main
     main()
