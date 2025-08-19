@@ -8,6 +8,6 @@
 if __name__ == "__main__":
     # 直接导入和运行
     import os
-    os.environ['EASYTRANS_API_KEY'] = 'mykey' 
+    os.environ['EASYTRANS_API_KEY'] = 'sk-v1-LJfF-3OKN3ZyESALnL08vWbfSOQ-MYIop/n/' 
     from agent.easytrans_example import main
     main()
