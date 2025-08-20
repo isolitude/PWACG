@@ -12,7 +12,7 @@ def checkDirectoryStructure():
     requiredDirs = fatherDirs + childDirs
     for subdir in requiredDirs:
         if not os.path.isdir(subdir):
-            print(f"目录 {subdir} 不存在！创建新目录")
+            print(f"Directory {subdir} not exists！ create directory")
             os.system("mkdir -p {}".format(subdir))
     return True
 
