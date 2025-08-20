@@ -16,9 +16,15 @@ from functools import partial
 from scipy.optimize import minimize
 
 import jax.numpy as np
-from dlib import dplex
 from jax import device_put, grad, jit, vmap
 from jax import config
+import sys
+
+foo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(foo_path)
+sys.path.append(foo_path)
+
+from dlib import dplex
 
 # ==============================================================================
 # 日志配置
@@ -452,7 +458,7 @@ class PWALikelihoodCalculator:
         )
         
         # 返回总MC积分
-        return np.mean(dplex.dabs(total_mc))
+        return np.mean(np.sum(dplex.dabs(total_mc),axis=1))
     
     def combined_likelihood(self, args):
         """组合似然函数: data_likelihood + datasize * log(mc_likelihood)"""

@@ -16,9 +16,16 @@ from functools import partial
 from scipy.optimize import minimize
 
 import jax.numpy as np
-from dlib import dplex
 from jax import device_put, grad, jit, vmap, jvp
 from jax import config
+
+import sys
+foo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(foo_path)
+os.chdir(foo_path)
+sys.path.append(foo_path)
+
+from dlib import dplex
 
 # ==============================================================================
 # 日志配置
