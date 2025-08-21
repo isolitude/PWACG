@@ -150,6 +150,7 @@ class EasyTransClient:
     def messages(
         self,
         messages: List[Dict[str, str]],
+        # model: str = "o3-pro-2025-06-10",
         model: str = "claude-opus-4-20250514",
         max_tokens: int = 4000000,
         stream: bool = False,
@@ -364,3 +365,26 @@ class EasyTransClient:
 class EasyTransError(Exception):
     """极易云 API 异常"""
     pass
+
+if __name__ == "__main__":
+    # 示例用法
+    client = EasyTransClient()
+    client.logger.info("极易云客户端初始化成功")
+    try:
+        response = client.chat_completion(
+            messages=[{"role": "user", "content": "你好，极易云！"}],
+            model="gemini-2.5-pro"
+        )
+        content = client.extract_content(response)
+        client.logger.info(f"响应内容: {content}")
+    except EasyTransError as e:
+        client.logger.error(f"API 调用失败: {e}")
+    try:
+        messages_response = client.messages(
+            messages=[{"role": "user", "content": "请帮我计算f980共振态"}],
+            model="claude-opus-4-20250514"
+        )
+        content = client.extract_content(messages_response)
+        client.logger.info(f"消息 API 响应内容: {content}")
+    except EasyTransError as e:
+        client.logger.error(f"消息 API 调用失败: {e}")
