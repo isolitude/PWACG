@@ -16,9 +16,9 @@ LLM驱动的PWA共振态函数生成器 (使用EasyTrans API)
 
 import os
 import sys
-import toml
 import json
 import time
+import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -31,10 +31,64 @@ sys.path.append(foo_path)
 from agent.easytrans_client import EasyTransClient, EasyTransError
 
 
+def parse_simple_toml(file_path: str) -> Dict[str, Any]:
+    """简单的TOML解析函数，仅支持基本格式"""
+    data = {}
+    current_section = None
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                # 解析节标题
+                if line.startswith('[') and line.endswith(']'):
+                    current_section = line[1:-1]
+                    # 创建嵌套字典
+                    parts = current_section.split('.')
+                    current = data
+                    for part in parts:
+                        if part not in current:
+                            current[part] = {}
+                        current = current[part]
+                
+                # 解析键值对
+                elif '=' in line and current_section:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip('"\'')
+                    
+                    # 尝试转换数据类型
+                    if value.lower() == 'true':
+                        value = True
+                    elif value.lower() == 'false':
+                        value = False
+                    elif value.replace('.', '').replace('-', '').isdigit():
+                        value = float(value) if '.' in value else int(value)
+                    
+                    # 设置值到正确的位置
+                    parts = current_section.split('.')
+                    current = data
+                    for part in parts[:-1]:
+                        current = current[part]
+                    
+                    final_part = parts[-1]
+                    if final_part not in current:
+                        current[final_part] = {}
+                    current[final_part][key] = value
+        
+        return data
+    except Exception as e:
+        print(f"TOML解析错误: {e}")
+        return {}
+
+
 class LLMResonanceGenerator:
     """LLM驱动的共振态代码生成器"""
     
-    def __init__(self, config_path: str = "agent/resonances_config.toml", model: str = "claude-opus-4-20250514"):
+    def __init__(self, config_path: str = "agent/resonances_config.toml", model: str = "o3-pro-2025-06-10"):
         """
         初始化LLM代码生成器
         
@@ -76,8 +130,7 @@ Generate complete, runnable Python functions without overly detailed docstrings.
     def load_config(self) -> Dict[str, Any]:
         """加载TOML配置文件"""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                config = toml.load(f)
+            config = parse_simple_toml(self.config_path)
             print(f"✅ 配置文件加载成功: {self.config_path}")
             return config
         except Exception as e:
@@ -213,15 +266,12 @@ Do not include any explanatory text, only pure code.
         print(f"🧠 正在使用 {self.model} 生成 {resonance_name} 的 {function_type} 函数...")
         print(f"📝 提示词长度: {len(prompt)} 字符")
         
-        messages = [{"role": "user", "content": prompt}]
-        
         try:
-            # 使用messages API调用Claude模型
-            response = self.llm_client.messages(
-                messages=messages,
-                model=self.model,
-                max_tokens=4000000,
-                system=self.system_prompt
+            # 使用responses API调用Claude模型 (不使用messages参数)
+            full_prompt = f"{self.system_prompt}\n\n{prompt}"
+            response = self.llm_client.responses(
+                input_text=full_prompt,
+                model=self.model
             )
             
             if not self.llm_client.validate_response(response):
@@ -271,14 +321,11 @@ Output only code, no other explanations.
         
         print(f"🧠 正在生成 {resonance_name} 的参数提取代码...")
         
-        messages = [{"role": "user", "content": prompt}]
-        
         try:
-            response = self.llm_client.messages(
-                messages=messages,
-                model=self.model,
-                max_tokens=4000000,
-                system=self.system_prompt
+            full_prompt = f"{self.system_prompt}\n\n{prompt}"
+            response = self.llm_client.responses(
+                input_text=full_prompt,
+                model=self.model
             )
             
             generated_code = self.llm_client.extract_content(response)
@@ -417,7 +464,7 @@ def main():
     
     try:
         # 创建生成器 (使用Claude模型，特别适合代码生成)
-        generator = LLMResonanceGenerator(model="claude-opus-4-20250514")
+        generator = LLMResonanceGenerator()
         
         # 演示f980共振态函数生成
         generator.demonstrate_generation("f980")

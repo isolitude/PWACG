@@ -82,7 +82,7 @@ class EasyTransClient:
             "messages": messages,
             "temperature": temperature,
             "stream": stream,
-            "max_tokens": max_tokens or 4000000  # 极易云需要显式设置 max_tokens
+            # "max_tokens": max_tokens or 4000  # 极易云需要显式设置 max_tokens
         }
         
         # 处理 function calling（如果极易云支持的话）
@@ -150,9 +150,9 @@ class EasyTransClient:
     def messages(
         self,
         messages: List[Dict[str, str]],
-        # model: str = "o3-pro-2025-06-10",
-        model: str = "claude-opus-4-20250514",
-        max_tokens: int = 4000000,
+        # model: str = "claude-opus-4-20250514",
+        model: str = "claude-opus-4-1-20250805",
+        max_tokens: int = 10000,
         stream: bool = False,
         system: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -375,16 +375,34 @@ if __name__ == "__main__":
             messages=[{"role": "user", "content": "你好，极易云！"}],
             model="gemini-2.5-pro"
         )
+        print(response)
         content = client.extract_content(response)
         client.logger.info(f"响应内容: {content}")
     except EasyTransError as e:
         client.logger.error(f"API 调用失败: {e}")
     try:
-        messages_response = client.messages(
-            messages=[{"role": "user", "content": "请帮我计算f980共振态"}],
-            model="claude-opus-4-20250514"
+        response = client.responses(
+            input_text="极易云开放平台是一个强大的AI服务平台",
+            model="o3-pro-2025-06-10"
         )
-        content = client.extract_content(messages_response)
-        client.logger.info(f"消息 API 响应内容: {content}")
+        content = client.extract_content(response)
+        client.logger.info(f"响应内容: {content}")          
     except EasyTransError as e:
-        client.logger.error(f"消息 API 调用失败: {e}")
+        client.logger.error(f"响应 API 调用失败: {e}")
+
+    # try:
+    #     embedding_response = client.embeddings(
+    #         input_text="极易云开放平台是一个强大的AI服务平台",
+    #         model="text-embedding-3-small"
+    #     )
+    #     client.logger.info(f"嵌入 API 响应: {embedding_response}")
+    # except EasyTransError as e:
+    #     client.logger.error(f"嵌入 API 调用失败: {e}")
+    # try:
+    #     messages_response = client.messages(
+    #         messages=[{"role": "user", "content": "请帮我计算f980共振态"}]
+    #     )
+    #     content = client.extract_content(messages_response)
+    #     client.logger.info(f"消息 API 响应内容: {content}")
+    # except EasyTransError as e:
+    #     client.logger.error(f"消息 API 调用失败: {e}")
