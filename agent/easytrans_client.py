@@ -23,7 +23,7 @@ class EasyTransClient:
             api_key: API 密钥，如果为 None 则从环境变量读取
             base_url: API 基础 URL
         """
-        self.api_key = api_key or os.getenv('EASYTRANS_API_KEY') or os.getenv('OPENAI_API_KEY')
+        self.api_key = api_key or os.getenv('EASYTRANS_API_KEY') 
         self.base_url = base_url or os.getenv('EASYTRANS_BASE_URL', 'https://api.easytransnote.com/v1')
         
         if not self.api_key:
@@ -370,21 +370,25 @@ if __name__ == "__main__":
     # 示例用法
     client = EasyTransClient()
     client.logger.info("极易云客户端初始化成功")
-    try:
-        response = client.chat_completion(
-            messages=[{"role": "user", "content": "你好，极易云！"}],
-            model="gemini-2.5-pro"
-        )
-        print(response)
-        content = client.extract_content(response)
-        client.logger.info(f"响应内容: {content}")
-    except EasyTransError as e:
-        client.logger.error(f"API 调用失败: {e}")
+
+    # try:
+    #     response = client.chat_completion(
+    #         messages=[{"role": "user", "content": "你好，极易云！"}],
+    #         model="gemini-2.5-pro"
+    #     )
+    #     print(response)
+    #     content = client.extract_content(response)
+    #     client.logger.info(f"响应内容: {content}")
+    # except EasyTransError as e:
+    #     client.logger.error(f"API 调用失败: {e}")
+
     try:
         response = client.responses(
             input_text="极易云开放平台是一个强大的AI服务平台",
-            model="o3-pro-2025-06-10"
+            model="gpt-5-2025-08-07"
+            # model="o3-pro-2025-06-10"
         )
+        print(response)
         content = client.extract_content(response)
         client.logger.info(f"响应内容: {content}")          
     except EasyTransError as e:

@@ -21,6 +21,8 @@ import time
 import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+import toml
+
 
 # 添加项目路径
 foo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -182,6 +184,10 @@ Generate complete, runnable Python functions without overly detailed docstrings.
         
         prompt += "\n## Physical Parameters:\n"
         for param_name, param_info in config['parameters'].items():
+            if isinstance(param_info, str):
+                param_info = toml.loads(f"param = {param_info}")['param']
+            else:
+                param_info = param_info
             prompt += f"- **{param_name}**: {param_info['value']:.6f}"
             if 'error' in param_info:
                 prompt += f" ± {param_info['error']:.6f}"
@@ -191,6 +197,10 @@ Generate complete, runnable Python functions without overly detailed docstrings.
         
         prompt += "\n## Complex Coefficients:\n"
         for coeff_name, coeff_info in config['coefficients'].items():
+            if isinstance(coeff_info, str):
+                coeff_info = toml.loads(f"param = {coeff_info}")['param']
+            else:
+                coeff_info = coeff_info
             prompt += f"- **{coeff_name}**: {coeff_info['value']:.6f}"
             if 'error' in coeff_info:
                 prompt += f" ± {coeff_info['error']:.6f}"
@@ -262,6 +272,7 @@ Do not include any explanatory text, only pure code.
             生成的函数代码
         """
         prompt = self.create_generation_prompt(resonance_name, function_type)
+        print(prompt)
         
         print(f"🧠 正在使用 {self.model} 生成 {resonance_name} 的 {function_type} 函数...")
         print(f"📝 提示词长度: {len(prompt)} 字符")
@@ -360,12 +371,12 @@ Output only code, no other explanations.
         
         time.sleep(1)  # 避免API限制
         
-        # 生成参数提取代码
-        try:
-            functions['parameter_extraction'] = self.generate_parameter_extraction_with_llm(resonance_name)
-        except Exception as e:
-            print(f"⚠️  参数提取代码生成失败: {e}")
-            functions['parameter_extraction'] = f"# 参数提取代码生成失败: {e}"
+        # # 生成参数提取代码
+        # try:
+        #     functions['parameter_extraction'] = self.generate_parameter_extraction_with_llm(resonance_name)
+        # except Exception as e:
+        #     print(f"⚠️  参数提取代码生成失败: {e}")
+        #     functions['parameter_extraction'] = f"# 参数提取代码生成失败: {e}"
         
         print(f"✅ {resonance_name} 函数集合生成完成！")
         return functions
@@ -464,7 +475,7 @@ def main():
     
     try:
         # 创建生成器 (使用Claude模型，特别适合代码生成)
-        generator = LLMResonanceGenerator()
+        generator = LLMResonanceGenerator(model="gpt-5-2025-08-07")
         
         # 演示f980共振态函数生成
         generator.demonstrate_generation("f980")

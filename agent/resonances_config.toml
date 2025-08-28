@@ -1,102 +1,54 @@
-# PWA 共振态配置文件
-# 用于 LLM 代码生成器识别和生成共振态相关代码
+# resonances_config.toml
 
-[metadata]
-version = "1.0"
-channel = "kk"
-description = "KK 通道共振态物理参数配置"
-generator_target = "fit_hvp_templates.py"
+# phif0(980) resonance configuration
+[resonances.phif0_980.propagators.A_propagator]
+propagator_type = "BW"  
+mass = { value = 1.02, fixed = true}
+width = { value = 0.004, fixed = true}
 
-# 通用固定参数（所有共振态共享）
-[fixed_parameters]
-phi_mass = 1.02
-phi_width = 0.004
-
-# 共振态定义
-# 每个共振态包含：类型、传播子函数、参数、约束等信息
-
-# =============================================================================
-# f980 共振态 (Flatte 形状)
-# =============================================================================
-[resonances.f980]
-name = "f980"
-type = "flatte"
-mod_name = "phif0_980_kk"  # 模式标识符
-amplitude_wave = "phif0_kk"  # 使用的振幅波函数
-
-# 传播子配置
-[resonances.f980.propagators]
-phi_propagator = "BW"  # Breit-Wigner
-f_propagator = "flatte980"  # Flatte 形状
-
-# 物理参数
-[resonances.f980.parameters]
+[resonances.phif0_980.propagators.B_propagator]
+propagator_type = "flatte980" 
 mass = { value = 0.9794812115574156, range = [0.98, 10.0], fixed = false, error = 0.0029114167854559173 }
 g_kk = { value = 0.10678616326827592, fixed = false, error = 0.010260657247901088 }
 rg = { value = 8.570187550432664, fixed = false, error = 1.348489540060868 }
 
-# 复数系数（实部和虚部）
-[resonances.f980.coefficients]
-# 第一组系数（固定）
+[resonances.phif0_980.coefficients]
 const1 = { value = 0.1, fixed = true, error = 0.0 }
 theta1 = { value = 0.1, fixed = true, error = 0.0 }
-# 第二组系数（浮动）
 const2 = { value = 0.1065182971468388, fixed = false, error = 0.003833456119689838 }
 theta2 = { value = 0.03807025376236671, fixed = false, error = 0.0032382807585900437 }
 
-# 代码生成提示
-[resonances.f980.code_generation]
-function_template = "calculate_BW_flatte980"
-lasso_function_template = "lasso_calculate_BW_flatte980"
-parameter_extraction = ["kk_f980_mass", "kk_f980_g_kk", "kk_f980_rg", "kk_f980_const", "kk_f980_theta"]
 
-# =============================================================================
-# f0_1710 共振态 (Breit-Wigner 形状)
-# =============================================================================
-[resonances.f0_1710]
-name = "f0_1710"
-type = "BW"
-mod_name = "phif0_1710_kk"
-amplitude_wave = "phif0_kk"
+# phif0(1710) resonance configuration
+[resonances.phif0_1710.propagators.A_propagator]
+propagator_type = "BW"
+mass = { value = 1.02, fixed = true }
+width = { value = 0.004, fixed = true }
 
-[resonances.f0_1710.propagators]
-phi_propagator = "BW"
-f_propagator = "BW"
-
-[resonances.f0_1710.parameters]
+[resonances.phif0_1710.propagators.B_propagator]
+propagator_type = "BW"
 mass = { value = 1.6761965590304995, range = [1.704, 1.0], fixed = false, error = 0.008608254171218993 }
 width = { value = 0.16270071108440043, range = [0.123, 1.0], fixed = false, error = 0.007928828044131218 }
 
-[resonances.f0_1710.coefficients]
+[resonances.phif0_1710.coefficients]
 const1 = { value = 0.02201375198386279, fixed = false, error = 0.0028493281809777366 }
 const2 = { value = 0.007433204877151768, fixed = false, error = 0.0027873338673183225 }
 theta1 = { value = 0.008302300118288414, fixed = false, error = 0.003420832265462995 }
 theta2 = { value = -0.018544178045626723, fixed = false, error = 0.002285070372617045 }
 
-[resonances.f0_1710.code_generation]
-function_template = "calculate_BW_BW"
-lasso_function_template = "lasso_calculate_BW_BW"
-parameter_extraction = ["kk_f0_mass", "kk_f0_width", "kk_f0_const", "kk_f0_theta"]
 
-# =============================================================================
-# f1270 共振态 (Flatte1270 形状)
-# =============================================================================
-[resonances.f1270]
-name = "f1270"
-type = "flatte1270"
-mod_name = "phif2_1270_kk"
-amplitude_wave = "phif2_kk"
+# phif2(1270) resonance configuration
+[resonances.phif2_1270.propagators.A_propagator]
+propagator_type = "BW"
+mass = { value = 1.02, fixed = true }
+width = { value = 0.004, fixed = true }
 
-[resonances.f1270.propagators]
-phi_propagator = "BW"
-f_propagator = "flatte1270"
-
-[resonances.f1270.parameters]
+[resonances.phif2_1270.propagators.B_propagator]
+propagator_type = "flatte1270"
 mass = { value = 1.2896149318644679, range = [1.2755, 1.0], fixed = false, error = 0.008900150561499074 }
 width = { value = 0.1959796900380022, range = [0.1867, 1.0], fixed = false, error = 0.009003877508753227 }
 
-# f1270 具有5个复数系数组分
-[resonances.f1270.coefficients]
+[resonances.phif2_1270.coefficients]
 const1 = { value = -0.013533706721054747, fixed = false, error = 0.013059446776572923 }
 const2 = { value = -0.01650921272412254, fixed = false, error = 0.011103610207449996 }
 const3 = { value = 0.015339403283337268, fixed = false, error = 0.007598401439603328 }
@@ -109,33 +61,19 @@ theta3 = { value = 0.017179622009723918, fixed = false, error = 0.00825967800650
 theta4 = { value = -0.050143087437086675, fixed = false, error = 0.010731665771685451 }
 theta5 = { value = -0.008718872479379924, fixed = false, error = 0.009363006763018657 }
 
-[resonances.f1270.code_generation]
-function_template = "calculate_BW_flatte1270"
-lasso_function_template = "lasso_calculate_BW_flatte1270"
-parameter_extraction = ["kk_f1270_mass", "kk_f1270_width", "kk_f1270_const", "kk_f1270_theta"]
-multi_component = 5  # 多重态数量
 
-# =============================================================================
-# f2 共振态组 (多个 BW 共振态，包含 1525, 2150, 2340)
-# =============================================================================
-[resonances.f2_group]
-name = "f2"
-type = "BW_multi"
-mod_names = ["phif2_1525_kk", "phif2_2150_kk", "phif2_2340_kk"]
-amplitude_wave = "phif2_kk"
-n_components = 5  # 每个共振态的复数系数组分数
-n_masses = 3      # 共振态数量
+# phif2(1525) resonance configuration
+[resonances.phif2_1525.propagators.A_propagator]
+propagator_type = "BW"
+mass = { value = 1.02, fixed = true }
+width = { value = 0.004, fixed = true }
 
-[resonances.f2_group.propagators]
-phi_propagator = "BW"
-f_propagator = "BW"
-
-# f2_1525 参数
-[resonances.f2_group.f2_1525]
+[resonances.phif2_1525.propagators.B_propagator]
+propagator_type = "BW"
 mass = { value = 1.5222602842746435, range = [1.517, 1.0], fixed = false, error = 0.0021852818767245097 }
 width = { value = 0.08576525399315078, range = [0.086, 1.0], fixed = false, error = 0.004480554483528854 }
 
-[resonances.f2_group.f2_1525.coefficients]
+[resonances.phif2_1525.coefficients]
 const1 = { value = -0.005345214125595505, fixed = false, error = 0.002361030920067052 }
 const2 = { value = 0.0031770703345810553, fixed = false, error = 0.0022601284491659272 }
 const3 = { value = -0.0036743677603351056, fixed = false, error = 0.0018391542634132708 }
@@ -148,12 +86,19 @@ theta3 = { value = 0.0031787953173277725, fixed = false, error = 0.0009832831099
 theta4 = { value = 0.0333658928584713, fixed = false, error = 0.0037659511330376417 }
 theta5 = { value = -0.006053516058970728, fixed = false, error = 0.0016345295470368193 }
 
-# f2_2150 参数
-[resonances.f2_group.f2_2150]
+
+# phif2(2150) resonance configuration
+[resonances.phif2_2150.propagators.A_propagator]
+propagator_type = "BW"
+mass = { value = 1.02, fixed = true }
+width = { value = 0.004, fixed = true }
+
+[resonances.phif2_2150.propagators.B_propagator]
+propagator_type = "BW"
 mass = { value = 2.1619576785269476, range = [2.157, 1.0], fixed = false, error = 0.009091748268572158 }
 width = { value = 0.15906049251159413, range = [0.152, 1.0], fixed = false, error = 0.009061189535661485 }
 
-[resonances.f2_group.f2_2150.coefficients]
+[resonances.phif2_2150.coefficients]
 const1 = { value = 0.004643720949518616, fixed = false, error = 0.004293173395970161 }
 const2 = { value = -0.0009682564746806725, fixed = false, error = 0.004579214352357212 }
 const3 = { value = -0.0029804674908844213, fixed = false, error = 0.0025923332971131054 }
@@ -166,12 +111,19 @@ theta3 = { value = 0.002196563552197887, fixed = false, error = 0.00249121914018
 theta4 = { value = -0.016814307435916394, fixed = false, error = 0.0032647649405574786 }
 theta5 = { value = -0.007232946300343621, fixed = false, error = 0.003910253340981285 }
 
-# f2_2340 参数
-[resonances.f2_group.f2_2340]
+
+# phif2(2340) resonance configuration
+[resonances.phif2_2340.propagators.A_propagator]
+propagator_type = "BW"
+mass = { value = 1.02, fixed = true }
+width = { value = 0.004, fixed = true }
+
+[resonances.phif2_2340.propagators.B_propagator]
+propagator_type = "BW"
 mass = { value = 2.547889297662712, range = [2.345, 0.01], fixed = false, error = 0.025714265576588485 }
 width = { value = 0.324001266488012, range = [0.322, 1.0], fixed = false, error = 0.008869958469754202 }
 
-[resonances.f2_group.f2_2340.coefficients]
+[resonances.phif2_2340.coefficients]
 const1 = { value = -0.15266341362240637, fixed = false, error = 0.0226276447864268 }
 const2 = { value = -0.05030214288962155, fixed = false, error = 0.01462254664631181 }
 const3 = { value = -0.01856511044577769, fixed = false, error = 0.01602693686543622 }
@@ -184,142 +136,3 @@ theta3 = { value = 0.13756083806604205, fixed = false, error = 0.015675234074991
 theta4 = { value = -0.0033564526519642953, fixed = false, error = 0.01289703559343365 }
 theta5 = { value = 0.06849361819185686, fixed = false, error = 0.016369611794000778 }
 
-[resonances.f2_group.code_generation]
-function_template = "calculate_BW_BW"
-lasso_function_template = "lasso_calculate_BW_BW"
-parameter_extraction = ["kk_f2_mass", "kk_f2_width", "kk_f2_const", "kk_f2_theta"]
-
-# =============================================================================
-# 数据映射和计算配置
-# =============================================================================
-[data_sources]
-# 不同数据源的标识符
-data = { phi = "data_phi_kk", f = "data_f_kk", phif0 = "data_phif0_kk", phif2 = "data_phif2_kk" }
-mc = { phi = "mc_phi_kk", f = "mc_f_kk", phif0 = "mc_phif0_kk", phif2 = "mc_phif2_kk" }
-truth = { phi = "truth_phi_kk", f = "truth_f_kk", phif0 = "truth_phif0_kk", phif2 = "truth_phif2_kk" }
-
-# =============================================================================
-# 振幅计算配置
-# =============================================================================
-[amplitude_calculations]
-# 数据似然中的振幅计算
-[[amplitude_calculations.data_likelihood]]
-name = "data_phif0_kk_BW_flatte980"
-resonance = "f980"
-data_source = "data"
-
-[[amplitude_calculations.data_likelihood]]
-name = "data_phif0_kk_BW_BW"
-resonance = "f0_1710"
-data_source = "data"
-
-[[amplitude_calculations.data_likelihood]]
-name = "data_phif2_kk_BW_flatte1270"
-resonance = "f1270"
-data_source = "data"
-
-[[amplitude_calculations.data_likelihood]]
-name = "data_phif2_kk_BW_BW"
-resonance = "f2_group"
-data_source = "data"
-
-# MC 似然中的振幅计算
-[[amplitude_calculations.mc_likelihood]]
-name = "mc_total_f980"
-resonance = "f980"
-data_source = "mc"
-
-[[amplitude_calculations.mc_likelihood]]
-name = "mc_total_f0"
-resonance = "f0_1710"
-data_source = "mc"
-
-[[amplitude_calculations.mc_likelihood]]
-name = "mc_total_f1270"
-resonance = "f1270"
-data_source = "mc"
-
-[[amplitude_calculations.mc_likelihood]]
-name = "mc_total_f2"
-resonance = "f2_group"
-data_source = "mc"
-
-# 约束计算中的振幅
-[[amplitude_calculations.constraint]]
-name = "lasso_data_phif0_kk_BW_flatte980"
-resonance = "f980"
-data_source = "truth"
-
-[[amplitude_calculations.constraint]]
-name = "lasso_data_phif0_kk_BW_BW"
-resonance = "f0_1710"
-data_source = "truth"
-
-[[amplitude_calculations.constraint]]
-name = "lasso_data_phif2_kk_BW_flatte1270"
-resonance = "f1270"
-data_source = "truth"
-
-[[amplitude_calculations.constraint]]
-name = "lasso_data_phif2_kk_BW_BW"
-resonance = "f2_group"
-data_source = "truth"
-
-# =============================================================================
-# 代码生成器配置
-# =============================================================================
-[code_generator]
-# LLM 代码生成相关配置
-template_path = "templates/fit_template_hvp.py"
-output_path = "agent/generated/fit_kk_generated.py"
-
-# 参数映射：TOML 配置 -> 代码参数名
-[code_generator.parameter_mapping]
-# 将 TOML 中的参数名映射到代码中使用的参数名
-f980_mass = "kk_f980_mass"
-f980_g_kk = "kk_f980_g_kk"
-f980_rg = "kk_f980_rg"
-f980_const = "kk_f980_const"
-f980_theta = "kk_f980_theta"
-
-f0_mass = "kk_f0_mass"
-f0_width = "kk_f0_width"
-f0_const = "kk_f0_const"
-f0_theta = "kk_f0_theta"
-
-f1270_mass = "kk_f1270_mass"
-f1270_width = "kk_f1270_width"
-f1270_const = "kk_f1270_const"
-f1270_theta = "kk_f1270_theta"
-
-f2_mass = "kk_f2_mass"
-f2_width = "kk_f2_width"
-f2_const = "kk_f2_const"
-f2_theta = "kk_f2_theta"
-
-# LLM 提示模板
-[code_generator.llm_prompts]
-# 用于生成共振态计算函数的提示
-resonance_calculation = """
-基于以下共振态配置生成 JAX 计算函数:
-- 共振态名称: {name}
-- 传播子类型: {propagators}
-- 物理参数: {parameters}
-- 复数系数: {coefficients}
-
-生成的函数应该:
-1. 使用 JAX numpy 和 dplex 库
-2. 计算 Breit-Wigner 或 Flatte 传播子
-3. 正确处理复数系数
-4. 返回振幅计算结果
-"""
-
-# 用于生成参数提取函数的提示
-parameter_extraction = """
-基于共振态配置生成参数提取代码:
-- 参数列表: {parameters}
-- 参数索引: {indices}
-- 固定参数: {fixed_params}
-
-生成的代码应该从 args 数组中正确提取所有参数。
-"""

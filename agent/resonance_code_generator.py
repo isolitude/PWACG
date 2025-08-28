@@ -310,7 +310,7 @@ def main():
     print("=== PWA 共振态代码生成器 ===\n")
     
     # 1. 解析配置文件
-    config_path = "/Users/sean/PWACG/agent/resonances_config.toml"
+    config_path = "/home/sean/PWACG/agent/resonances_config.toml"
     parser = ResonanceConfigParser(config_path)
     
     # 2. 解析共振态和振幅计算
@@ -356,7 +356,7 @@ def main():
             print(f"     * {calc['name']} ({calc['resonance']} -> {calc['data_source']})")
     
     # 5. 保存分析结果到 JSON 文件
-    output_path = "/Users/sean/PWACG/agent/resonance_analysis.json"
+    output_path = "/home/sean/PWACG/agent/resonance_analysis.json"
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(analysis_result, f, indent=2, ensure_ascii=False)
     
