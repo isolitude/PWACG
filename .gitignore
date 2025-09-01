@@ -9,7 +9,9 @@
 setup-claude.sh
 CLAUDE.md
 debug*.py
-llm_generated_*.py
+code_generated_*.py
+cache/
+generated_script.py
 
 output/
 result_repo/

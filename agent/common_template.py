@@ -57,6 +57,53 @@ def setup_logging():
 
 
 # ==============================================================================
+# SECTION: DATA_LOADING
+# Data loading function template
+# ==============================================================================
+def load_data():
+    """Load all required data"""
+    data = {}
+    
+    # Load real data
+    data['data_{var}'] = onp.load("data/real_data/{var}.npy")
+
+    # Load MC data
+    data['mc_{var}'] = onp.load("data/mc_truth/{var}.npy")
+
+    # MC truth data (for constraints)
+    data['truth_{var}'] = data['mc_{var}'][:, 0:150000]
+    
+    # Weight data
+    try:
+        data['wt_data_kk'] = onp.load("data/weight/weight_kk.npy")
+    except FileNotFoundError:
+        data['wt_data_kk'] = onp.ones_like(data['data_phi_kk'])
+    
+    return data
+
+def normalize_data(data):
+    """数据归一化处理"""
+    # 计算归一化因子
+    regular_{var} = 1. / onp.average(
+        onp.sqrt(onp.sum(onp.asarray(data['mc_{var}'])**2, axis=2)), axis=1
+    )
+    
+    # 应用归一化
+    data['data_{var}'] = onp.einsum("jkl,j->jkl", data['data_{var}'], regular_{var})
+    data['mc_{var}'] = onp.einsum("jkl,j->jkl", data['mc_{var}'], regular_{var})
+    data['truth_{var}'] = onp.einsum("jkl,j->jkl", data['truth_{var}'], regular_{var})
+    
+    return data
+
+def prepare_data_for_jax(data, device=None):
+    """将数据转换为JAX格式并放到指定设备"""
+    jax_data = {}
+    for key, value in data.items():
+        jax_data[key] = device_put(np.array(value), device=device)
+    return jax_data
+
+
+# ==============================================================================
 # SECTION: PHYSICS_FUNCTIONS
 # Physics calculation functions (resonance shape functions)
 # ==============================================================================
@@ -134,49 +181,3 @@ def calculate_propagatorA_propagatorB(phi_mass, phi_width, kk_f980_mass, kk_f980
     
     return phif
 
-
-# ==============================================================================
-# SECTION: DATA_LOADING
-# Data loading function template
-# ==============================================================================
-def load_data():
-    """Load all required data"""
-    data = {}
-    
-    # Load real data
-    data['data_{var}'] = onp.load("data/real_data/{var}.npy")
-
-    # Load MC data
-    data['mc_{var}'] = onp.load("data/mc_truth/{var}.npy")
-
-    # MC truth data (for constraints)
-    data['truth_{var}'] = data['mc_{var}'][:, 0:150000]
-    
-    # Weight data
-    try:
-        data['wt_data_kk'] = onp.load("data/weight/weight_kk.npy")
-    except FileNotFoundError:
-        data['wt_data_kk'] = onp.ones_like(data['data_phi_kk'])
-    
-    return data
-
-def normalize_data(data):
-    """数据归一化处理"""
-    # 计算归一化因子
-    regular_{var} = 1. / onp.average(
-        onp.sqrt(onp.sum(onp.asarray(data['mc_{var}'])**2, axis=2)), axis=1
-    )
-    
-    # 应用归一化
-    data['data_{var}'] = onp.einsum("jkl,j->jkl", data['data_{var}'], regular_{var})
-    data['mc_{var}'] = onp.einsum("jkl,j->jkl", data['mc_{var}'], regular_{var})
-    data['truth_{var}'] = onp.einsum("jkl,j->jkl", data['truth_{var}'], regular_{var})
-    
-    return data
-
-def prepare_data_for_jax(data, device=None):
-    """将数据转换为JAX格式并放到指定设备"""
-    jax_data = {}
-    for key, value in data.items():
-        jax_data[key] = device_put(np.array(value), device=device)
-    return jax_data
