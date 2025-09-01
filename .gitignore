@@ -9,6 +9,7 @@
 setup-claude.sh
 CLAUDE.md
 debug*.py
+llm_generated_*.py
 
 output/
 result_repo/
