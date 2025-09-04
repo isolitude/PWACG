@@ -187,9 +187,9 @@ class LLMResonanceGenerator:
         ]
         # 提取所有 AMP
         amp_list = [
-            resonance["coefficients"]["AMP"]["name"]
+            resonance["Amplitude"]["AMP"]["name"]
             for resonance in self.config["resonances"].values()
-            if "AMP" in resonance.get("coefficients", {})
+            if "AMP" in resonance.get("Amplitude", {})
         ]
 
         return list(dict.fromkeys(sbc_list)), list(dict.fromkeys(amp_list))
@@ -210,9 +210,9 @@ class LLMResonanceGenerator:
                 print(f"   - {prop_name}: {prop_type}")
             
             # 打印系数数量
-            coefficients = config.get('coefficients', {})
-            const_count = len([k for k in coefficients.keys() if k.startswith('const')])
-            theta_count = len([k for k in coefficients.keys() if k.startswith('theta')])
+            Amplitude = config.get('Amplitude', {})
+            const_count = len([k for k in Amplitude.keys() if k.startswith('const')])
+            theta_count = len([k for k in Amplitude.keys() if k.startswith('theta')])
             print(f"   - 系数: {const_count} const, {theta_count} theta")
             
     
@@ -239,10 +239,45 @@ amp = {amp}
 """
         return prompt
     
-    def generate_resonance_calculation_prompt(self, resonance_name: str, resonance_config: Dict[str, Any]) -> str:
-        resonance_calculation_section = self.sections.get('RESONANCE_CALCULATIONS', '')
+    def generate_calculate_function_prompt(self, resonance_name) -> str:
+        """生成 calculate_{A_propagator_type}_{B_propagator_type} 函数的代码生成提示词"""
+        function_template = self.sections.get('RESONANCE_CALCULATIONS', '')
+        all_resonances_info = self.config.get('resonances', {})
+        resonance_info = json.dumps(all_resonances_info.get(resonance_name, {}), indent=4)
+
+        prompt = f"""You are given a Python function template:
+function template:
+{function_template}
+
+Task:
+1. Replace placeholders:
+   - {{A_propagator_type}} with the A propagator type from the given resonance info.
+   - {{B_propagator_type}} with the B propagator type from the given resonance info.
+   - {{A_propagator_param}} with the parameter list for A propagator.
+   - {{B_propagator_param}} with the parameter list for B propagator.
+   - {{Amplitude_param}} with the amplitude-related parameters.
+
+2. For each resonance:
+   - If **all** its parameters are `fixed = true` in the config, call the propagator function directly:
+       `A_propagator = BW(param1, param2, Sbc_value)`
+   - If **any** parameter is `fixed = false`, use:
+       `A_propagator = np.moveaxis(vmap(partial(BW, Sbc=Sbc_value))(param1, param2, ...), 1, 0)`
+
+3. Keep the rest of the code structure exactly the same as the template.
+
+4. Output only the final Python function code string, without extra explanations.
+
+5. Create the component part, where component_{{A_propagator_type}}_{{B_propagator_type}} is completely consistent with calculate_{{A_propagator_type}}_{{B_propagator_type}} except for the final step, with only the contraction in the final step being "ljk,lj->ljk".
 
 
+Resonance name: {resonance_name}
+
+Resonance info:
+{resonance_info}
+"""
+        print(prompt)
+
+        return prompt
 
     def generate_partial_function(self, prompt: str, cache_file: str ) -> str:
         load_data_cache = self._load_cache(cache_file)
@@ -264,7 +299,6 @@ amp = {amp}
                 raise EasyTransError("LLM响应验证失败")
             
             generated_code = self.llm_client.extract_content(response)
-            print(generated_code)
             
             if not generated_code:
                 raise EasyTransError("LLM返回空的代码内容")
@@ -297,7 +331,16 @@ amp = {amp}
             print(f"⚠️  data load 函数生成失败: {e}")
         time.sleep(1)  # 避免API限制
 
+        try:
+            resonance_calculation_functions = []
+            for resonance_name in self.get_all_resonance_names()[0:1]:
+                resonance_calculation_prompt = self.generate_calculate_function_prompt(resonance_name)
+                resonance_calculation_functions.append(self.generate_partial_function(resonance_calculation_prompt, f"agent/cache/resonance_calculation_{resonance_name}.json"))
+            functions['resonance_calculation'] = "\n\n".join(resonance_calculation_functions)
 
+        except Exception as e:
+            print(f"⚠️  data load 函数生成失败: {e}")
+        time.sleep(1)  # 避免API限制
         
         print(f"✅ 函数集合生成完成！")
         return functions
@@ -330,9 +373,9 @@ amp = {amp}
             full_code += f"\n\n"
             full_code += functions['data_load']
         
-        # if 'parameter_extraction' in functions:
-        #     full_code += f"\n\n# 参数提取代码\n"
-        #     full_code += functions['parameter_extraction']
+        if 'resonance_calculation' in functions:
+            full_code += f"\n\n"
+            full_code += functions['resonance_calculation']
         
         # if 'standard' in functions:
         #     full_code += f"\n\n# 标准计算函数\n"

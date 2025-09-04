@@ -14,14 +14,14 @@ g_kk = { value = 0.10678616326827592, fixed = false, error = 0.01026065724790108
 rg = { value = 8.570187550432664, fixed = false, error = 1.348489540060868 }
 Sbc = { name = "f_kk" }
 
-[resonances.phif0_980.coefficients]
+[resonances.phif0_980.Amplitude]
+AMP = { name = "phif0_kk"}
+
 const1 = { value = 0.1, fixed = true, error = 0.0 }
 const2 = { value = 0.1065182971468388, fixed = false, error = 0.003833456119689838 }
 
 theta1 = { value = 0.1, fixed = true, error = 0.0 }
 theta2 = { value = 0.03807025376236671, fixed = false, error = 0.0032382807585900437 }
-
-AMP = { name = "phif0_kk"}
 
 
 # phif0(1710) resonance configuration
@@ -37,14 +37,14 @@ mass = { value = 1.6761965590304995, range = [1.704, 1.0], fixed = false, error 
 width = { value = 0.16270071108440043, range = [0.123, 1.0], fixed = false, error = 0.007928828044131218 }
 Sbc = { name = "f_kk" }
 
-[resonances.phif0_1710.coefficients]
+[resonances.phif0_1710.Amplitude]
+AMP = { name = "phif0_kk"}
+
 const1 = { value = 0.02201375198386279, fixed = false, error = 0.0028493281809777366 }
 const2 = { value = 0.007433204877151768, fixed = false, error = 0.0027873338673183225 }
 
 theta1 = { value = 0.008302300118288414, fixed = false, error = 0.003420832265462995 }
 theta2 = { value = -0.018544178045626723, fixed = false, error = 0.002285070372617045 }
-
-AMP = { name = "phif0_kk"}
 
 
 # phif2(1270) resonance configuration
@@ -60,7 +60,9 @@ mass = { value = 1.2896149318644679, range = [1.2755, 1.0], fixed = false, error
 width = { value = 0.1959796900380022, range = [0.1867, 1.0], fixed = false, error = 0.009003877508753227 }
 Sbc = { name = "f_kk" }
 
-[resonances.phif2_1270.coefficients]
+[resonances.phif2_1270.Amplitude]
+AMP = { name = "phif2_kk"}
+
 const1 = { value = -0.013533706721054747, fixed = false, error = 0.013059446776572923 }
 const2 = { value = -0.01650921272412254, fixed = false, error = 0.011103610207449996 }
 const3 = { value = 0.015339403283337268, fixed = false, error = 0.007598401439603328 }
@@ -72,8 +74,6 @@ theta2 = { value = 0.016032334798079934, fixed = false, error = 0.00962023576782
 theta3 = { value = 0.017179622009723918, fixed = false, error = 0.008259678006502619 }
 theta4 = { value = -0.050143087437086675, fixed = false, error = 0.010731665771685451 }
 theta5 = { value = -0.008718872479379924, fixed = false, error = 0.009363006763018657 }
-
-AMP = { name = "phif2_kk"}
 
 
 # phif2(1525) resonance configuration
@@ -89,7 +89,9 @@ mass = { value = 1.5222602842746435, range = [1.517, 1.0], fixed = false, error 
 width = { value = 0.08576525399315078, range = [0.086, 1.0], fixed = false, error = 0.004480554483528854 }
 Sbc = { name = "f_kk" }
 
-[resonances.phif2_1525.coefficients]
+[resonances.phif2_1525.Amplitude]
+AMP = { name = "phif2_kk"}
+
 const1 = { value = -0.005345214125595505, fixed = false, error = 0.002361030920067052 }
 const2 = { value = 0.0031770703345810553, fixed = false, error = 0.0022601284491659272 }
 const3 = { value = -0.0036743677603351056, fixed = false, error = 0.0018391542634132708 }
@@ -101,8 +103,6 @@ theta2 = { value = 0.003910028530572422, fixed = false, error = 0.00148838322051
 theta3 = { value = 0.0031787953173277725, fixed = false, error = 0.0009832831099109687 }
 theta4 = { value = 0.0333658928584713, fixed = false, error = 0.0037659511330376417 }
 theta5 = { value = -0.006053516058970728, fixed = false, error = 0.0016345295470368193 }
-
-AMP = { name = "phif2_kk"}
 
 
 # phif2(2150) resonance configuration
@@ -118,7 +118,9 @@ mass = { value = 2.1619576785269476, range = [2.157, 1.0], fixed = false, error 
 width = { value = 0.15906049251159413, range = [0.152, 1.0], fixed = false, error = 0.009061189535661485 }
 Sbc = { name = "f_kk" }
 
-[resonances.phif2_2150.coefficients]
+[resonances.phif2_2150.Amplitude]
+AMP = { name = "phif2_kk"}
+
 const1 = { value = 0.004643720949518616, fixed = false, error = 0.004293173395970161 }
 const2 = { value = -0.0009682564746806725, fixed = false, error = 0.004579214352357212 }
 const3 = { value = -0.0029804674908844213, fixed = false, error = 0.0025923332971131054 }
@@ -130,8 +132,6 @@ theta2 = { value = -0.012498776031677225, fixed = false, error = 0.0040941916591
 theta3 = { value = 0.002196563552197887, fixed = false, error = 0.0024912191401879813 }
 theta4 = { value = -0.016814307435916394, fixed = false, error = 0.0032647649405574786 }
 theta5 = { value = -0.007232946300343621, fixed = false, error = 0.003910253340981285 }
-
-AMP = { name = "phif2_kk"}
 
 
 # phif2(2340) resonance configuration
@@ -147,7 +147,9 @@ mass = { value = 2.547889297662712, range = [2.345, 0.01], fixed = false, error 
 width = { value = 0.324001266488012, range = [0.322, 1.0], fixed = false, error = 0.008869958469754202 }
 Sbc = { name = "f_kk" }
 
-[resonances.phif2_2340.coefficients]
+[resonances.phif2_2340.Amplitude]
+AMP = { name = "phif2_kk"}
+
 const1 = { value = -0.15266341362240637, fixed = false, error = 0.0226276447864268 }
 const2 = { value = -0.05030214288962155, fixed = false, error = 0.01462254664631181 }
 const3 = { value = -0.01856511044577769, fixed = false, error = 0.01602693686543622 }
@@ -160,4 +162,3 @@ theta3 = { value = 0.13756083806604205, fixed = false, error = 0.015675234074991
 theta4 = { value = -0.0033564526519642953, fixed = false, error = 0.01289703559343365 }
 theta5 = { value = 0.06849361819185686, fixed = false, error = 0.016369611794000778 }
 
-AMP = { name = "phif2_kk"}

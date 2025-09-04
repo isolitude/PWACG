@@ -158,26 +158,14 @@ def flatte500(self,m_,b1,b2,b3,b4,b5,Sbc):
 # SECTION: RESONANCE_CALCULATIONS
 # Composite resonance calculation function template
 # ==============================================================================
-def calculate_propagatorA_propagatorB(phi_mass, phi_width, kk_f980_mass, kk_f980_g_kk, kk_f980_rg,
-                          kk_f980_const, kk_f980_theta, phi_kk, f_kk, phif0_kk):
-    """Calculate BW×flatte980 contribution"""
-    # Phi resonance
-    bw_phi = BW(phi_mass, phi_width, phi_kk)
-    
-    # f980 resonance
-    bw_f980 = np.moveaxis(
-        vmap(partial(flatte980, Sbc=f_kk))(kk_f980_mass, kk_f980_g_kk, kk_f980_rg), 1, 0
+def calculate_{A_propagator_type}_{B_propagator_type}({A_propagator_param}, {B_propagator_param}, {Ampltitude_param}):
+    A_propagator = np.moveaxis(
+        vmap(partial({A_propagator_type}, Sbc={Sbc}))({A_propagator_param}), 1, 0
     )
-    
-    # Combined propagator
-    bw_combined = dplex.deinsum("j, ij->ij", bw_phi, bw_f980)
-    
-    # Complex coefficient
-    const_ph = dplex.dconstruct(kk_f980_const, kk_f980_theta)
-    
-    # Final amplitude
-    phif = dplex.deinsum_ord("ijk,li->ljk", phif0_kk, const_ph)
-    phif = dplex.deinsum("ljk,lj->jk", phif, bw_combined)
-    
-    return phif
+    B_propagator = BW({B_propagator_param})
+    propagator_combined = dplex.deinsum("j, ij->ij", B_propagator, A_propagator)
+    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
+    return result
 
