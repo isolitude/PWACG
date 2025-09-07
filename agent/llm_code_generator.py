@@ -180,14 +180,14 @@ class LLMResonanceGenerator:
     def get_all_resonance_data(self) -> List[str]:
         # 提取所有 Sbc
         sbc_list = [
-            prop["Sbc"]["name"]
+            prop["Sbc"]["var_name"]
             for resonance in self.config["resonances"].values()
             for prop in resonance.get("propagators", {}).values()
             if "Sbc" in prop
         ]
         # 提取所有 AMP
         amp_list = [
-            resonance["Amplitude"]["AMP"]["name"]
+            resonance["Amplitude"]["AMP"]["var_name"]
             for resonance in self.config["resonances"].values()
             if "AMP" in resonance.get("Amplitude", {})
         ]
@@ -214,7 +214,34 @@ class LLMResonanceGenerator:
             const_count = len([k for k in Amplitude.keys() if k.startswith('const')])
             theta_count = len([k for k in Amplitude.keys() if k.startswith('theta')])
             print(f"   - 系数: {const_count} const, {theta_count} theta")
-            
+    
+    def analysis_toml_config_prompt(self) -> Dict[str, Any]:
+        print(f"🚀 开始分析共振态配置以进行分组...")
+        all_resonances_info = self.config.get('resonances', {})
+        all_resonances_info = json.dumps(all_resonances_info, indent=4)
+        prompt = f"""
+toml config:
+{all_resonances_info}
+
+Task:
+Group resonances by `propagator_type`.
+
+Definition:
+- Similar `A_propagator` must have the same `propagator_type`.
+- Similar `B_propagator` must have the same `propagator_type`.
+
+Group Names:
+Combine `A_propagator` and `B_propagator` types with an underscore. Example: `"TypeA_TypeB"`.
+
+Output Format:
+{{
+    "TypeA_TypeB": ["resonance_name_1", "resonance_name_2"],
+    "TypeA_TypeC": ["resonance_name_3"]
+}}
+
+Ignore `Sbc`, `range`, `fixed`, `error`, and `Amplitude` sections.
+    """
+        return prompt
     
     def generate_load_data_prompt(self) -> str:
         """生成数据加载函数"""
@@ -239,44 +266,115 @@ amp = {amp}
 """
         return prompt
     
-    def generate_calculate_function_prompt(self, resonance_name) -> str:
+    def generate_calculate_function_prompt(self, ana_key, ana_value, resonance_name) -> str:
         """生成 calculate_{A_propagator_type}_{B_propagator_type} 函数的代码生成提示词"""
         function_template = self.sections.get('RESONANCE_CALCULATIONS', '')
         all_resonances_info = self.config.get('resonances', {})
         resonance_info = json.dumps(all_resonances_info.get(resonance_name, {}), indent=4)
+        prompt = f"""
+### 1. 任务目标
+你的任务是：
+- 仅替换给定 Python 代码模板中的 placeholder 标记（如 {{calculation_name}}、{{A_propagator_param}} 等）。
+- 保留模板中固定部分的结构、缩进、函数名、逻辑不变。
+- 输出最终的完整 Python 函数代码字符串，不添加任何额外解释或注释。
 
-        prompt = f"""You are given a Python function template:
+---
+
+### 2. 模板结构说明
+- 固定部分：
+  - 模板中的函数定义、缩进、固定逻辑、固定变量名。
+  - 除 placeholder 外的所有代码必须原样保留。
+
+- 可变部分（需要替换的 placeholder）：
+  - {{calculation_name}}
+  - {{A_propagator_param}} / {{B_propagator_param}}
+  - {{A_propagator_type}} / {{B_propagator_type}}
+
+---
+
+### 3. 参数替换规则
+1. calculation_name
+   - 使用输入中提供的 ana_key 值。
+
+2. A_propagator_param / B_propagator_param
+   - 按模板中参数顺序，从 resonance 配置的 propagator 参数中提取变量名（不是值）。
+
+3. A_propagator_type / B_propagator_type
+   - 使用 resonance 配置中的 propagator_type。
+
+4. 向量化方法选择规则（必须先判断再生成）
+   - **条件 1**：如果该 propagator 的所有参数值都是固定值 → 使用直接函数调用：
+     ```python
+     A_propagator = BW({{A_propagator_param}})
+     ```
+   - **条件 2**：如果 Resonance_len_in_Group 为 False → 也使用直接函数调用（即使参数不是固定值）。
+   - **条件 3**：其他情况 → 使用 vmap 方式：
+     ```python
+     A_propagator = np.moveaxis(
+         vmap(partial({{A_propagator_type}}, Sbc={{A_propagator_param.Sbc}}))({{A_propagator_param}}), 1, 0
+     )
+     ```
+     - {{A_propagator_param.Sbc}} 表示 Sbc 的变量名（如 phi_kk），不是值。
+     - {{A_propagator_param}} 表示除 Sbc 外的参数变量名集合（如 A_mass, A_width）。
+
+5. component_{{calculation_name}} 构造
+   - 构造并生成 component_{{calculation_name}} 函数。
+   - 与 calculate_{{calculation_name}} 相同，唯一不同是最后一步的 contraction 改为 `"ljk,lj->ljk"`。
+
+---
+
+### 4. 强制检测环节（生成前必须执行）
+在生成代码前，必须逐项检查：
+1. **A_propagator 检查**
+   - 判断其所有参数是否为固定值。
+   - 如果是 → 必须使用 direct call。
+   - 如果 Resonance_len_in_Group 为 False → 必须使用 direct call。
+   - 否则 → 使用 vmap。
+2. **B_propagator 检查**
+   - 同 A_propagator 的规则。
+3. **参数格式**
+   - 所有替换的参数必须符合规则（变量名而非值，顺序正确）。
+4. **代码缩进**
+   - 缩进与原模板完全一致。
+5. **输出内容**
+   - 仅输出最终 Python 函数代码字符串，不包含解释、注释或额外文本。
+6. **规则违规处理**
+   - 如果检测发现不符合规则，必须重新生成，直到符合为止。
+
+---
+
 function template:
 {function_template}
 
-Task:
-1. Replace placeholders:
-   - {{A_propagator_type}} with the A propagator type from the given resonance info.
-   - {{B_propagator_type}} with the B propagator type from the given resonance info.
-   - {{A_propagator_param}} with the parameter list for A propagator.
-   - {{B_propagator_param}} with the parameter list for B propagator.
-   - {{Amplitude_param}} with the amplitude-related parameters.
-
-2. For each resonance:
-   - If **all** its parameters are `fixed = true` in the config, call the propagator function directly:
-       `A_propagator = BW(param1, param2, Sbc_value)`
-   - If **any** parameter is `fixed = false`, use:
-       `A_propagator = np.moveaxis(vmap(partial(BW, Sbc=Sbc_value))(param1, param2, ...), 1, 0)`
-
-3. Keep the rest of the code structure exactly the same as the template.
-
-4. Output only the final Python function code string, without extra explanations.
-
-5. Create the component part, where component_{{A_propagator_type}}_{{B_propagator_type}} is completely consistent with calculate_{{A_propagator_type}}_{{B_propagator_type}} except for the final step, with only the contraction in the final step being "ljk,lj->ljk".
-
-
-Resonance name: {resonance_name}
-
-Resonance info:
+Resonance_Info:
 {resonance_info}
-"""
-        print(prompt)
 
+calculation_name: {ana_key}
+Resonance_len_in_Group: {len(ana_value) > 1}
+"""
+
+        return prompt
+
+    def generate_likelihood_function_prompt(self) -> str:
+        """生成 data_likelihood_{channel} 函数的代码生成提示词"""
+        likelihood_function_template = self.sections.get('likelihood_functions', '')
+        all_resonances_info = self.config.get('resonances', {})
+        resonance_info = json.dumps(all_resonances_info, indent=4)
+        prompt = f"""
+### 1. 任务目标
+你的任务是：
+1. 根据给定的函数定义（calculate_xxx 和 component_xxx）以及共振态信息，生成完整的 data_likelihood_{{channel}} 方法代码。
+2. 在生成 data_likelihood 时：
+   - 调用 calculate_xxx 计算振幅。
+   - 调用 component_xxx 计算振幅（用于分数约束）。
+   - 计算分数约束（frac_xxx）。
+   - 计算总似然值（likelihood）。
+---
+
+### 2. data_likelihood 模板
+{likelihood_function_template}
+
+"""
         return prompt
 
     def generate_partial_function(self, prompt: str, cache_file: str ) -> str:
@@ -321,26 +419,43 @@ Resonance info:
     def generate_complete_resonance_functions(self) -> Dict[str, str]:
         """生成指定共振态的完整函数集合"""
         print(f"🚀 开始生成共振态的完整函数集合...")
-        
+
         functions = {}
+
+        try:
+            ana_prompt = self.analysis_toml_config_prompt()
+            ana_result = self.generate_partial_function(ana_prompt, "agent/cache/ana_cache.json")
+            ana_result = json.loads(ana_result)
+            print("ana_reuslt:",ana_result)
+        except Exception as e:
+            print(f"⚠️  分析失败: {e}")
+        time.sleep(1)
 
         try:
             data_load_prompt = self.generate_load_data_prompt()
             functions['data_load'] = self.generate_partial_function(data_load_prompt, "agent/cache/load_data_cache.json")
         except Exception as e:
             print(f"⚠️  data load 函数生成失败: {e}")
-        time.sleep(1)  # 避免API限制
+        time.sleep(1) 
 
         try:
             resonance_calculation_functions = []
-            for resonance_name in self.get_all_resonance_names()[0:1]:
-                resonance_calculation_prompt = self.generate_calculate_function_prompt(resonance_name)
+            for ana_key, ana_value in ana_result.items():
+                ana_value = sorted(ana_value)
+                resonance_name = ana_value[0]
+                resonance_calculation_prompt = self.generate_calculate_function_prompt(ana_key,ana_value,resonance_name)
                 resonance_calculation_functions.append(self.generate_partial_function(resonance_calculation_prompt, f"agent/cache/resonance_calculation_{resonance_name}.json"))
             functions['resonance_calculation'] = "\n\n".join(resonance_calculation_functions)
-
         except Exception as e:
-            print(f"⚠️  data load 函数生成失败: {e}")
-        time.sleep(1)  # 避免API限制
+            print(f"⚠️  calculation 函数生成失败: {e}")
+        time.sleep(1)
+
+        try:
+            likelihood_function_prompt = self.generate_likelihood_function_prompt()
+            functions['likelihood_function'] = self.generate_partial_function(likelihood_function_prompt, "agent/cache/likelihood_function_cache.json")
+        except Exception as e:
+            print(f"⚠️  likelihood 函数生成失败: {e}")
+        time.sleep(1) 
         
         print(f"✅ 函数集合生成完成！")
         return functions
@@ -358,6 +473,7 @@ Resonance info:
         common_utilities_section = self.sections.get('COMMON_UTILITIES', '')
         path_config_section = self.sections.get('PATH_CONFIG', '')
         logging_config_section = self.sections.get('LOGGING_CONFIG', '')
+        physics_functions_section = self.sections.get('PHYSICS_FUNCTIONS', '')
         
         # 组合头部
         header = f"""# Auto-generated by LLMResonanceGenerator
@@ -365,6 +481,7 @@ Resonance info:
 {common_utilities_section}
 {path_config_section}
 {logging_config_section}
+{physics_functions_section}
 """
         # 组合所有函数
         full_code = header
@@ -376,14 +493,11 @@ Resonance info:
         if 'resonance_calculation' in functions:
             full_code += f"\n\n"
             full_code += functions['resonance_calculation']
+
+        if 'likelihood_function' in functions:
+            full_code += f"\n\n"
+            full_code += functions['likelihood_function']
         
-        # if 'standard' in functions:
-        #     full_code += f"\n\n# 标准计算函数\n"
-        #     full_code += functions['standard']
-        
-        # if 'lasso' in functions:
-        #     full_code += f"\n\n# Lasso版本函数 (用于约束计算)\n"
-        #     full_code += functions['lasso']
         
         # 写入文件
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -400,7 +514,8 @@ def main():
     
     try:
         # 创建生成器
-        generator = LLMResonanceGenerator(model="gpt-5-2025-08-07")
+        generator = LLMResonanceGenerator(model="gpt-5-mini-2025-08-07")
+        # generator = LLMResonanceGenerator(model="gpt-5-2025-08-07")
         
         # 打印配置摘要
         generator.print_config_summary()

@@ -158,10 +158,8 @@ def flatte500(self,m_,b1,b2,b3,b4,b5,Sbc):
 # SECTION: RESONANCE_CALCULATIONS
 # Composite resonance calculation function template
 # ==============================================================================
-def calculate_{A_propagator_type}_{B_propagator_type}({A_propagator_param}, {B_propagator_param}, {Ampltitude_param}):
-    A_propagator = np.moveaxis(
-        vmap(partial({A_propagator_type}, Sbc={Sbc}))({A_propagator_param}), 1, 0
-    )
+def calculate_{calculation_name}({A_propagator_param}, {B_propagator_param}, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
+    A_propagator = BW({A_propagator_param})
     B_propagator = BW({B_propagator_param})
     propagator_combined = dplex.deinsum("j, ij->ij", B_propagator, A_propagator)
     const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
@@ -169,3 +167,39 @@ def calculate_{A_propagator_type}_{B_propagator_type}({A_propagator_param}, {B_p
     result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
     return result
 
+# ==============================================================================
+# SECTION: likelihood_functions
+# likelihood function templates
+def data_likelihood_{channel}(args):
+    """数据似然函数（类成员版本，最高效）"""
+    # 提取参数（使用公共函数）
+    params = extract_parameters(args)
+    
+    # 计算各个贡献（直接使用成员变量）
+    {calc_calls}
+    
+    # ========== 完整的约束项计算 ==========
+    # 使用component版本的函数计算所有约束项
+    {component_calls}
+    
+    # 计算总的约束分母（所有共振态的总和）
+    sum_frac = np.sum(dplex.dabs(
+        {sum_terms}
+    ))
+    
+    # 计算各个共振态的分数约束
+    {frac_terms}
+    
+    # 总分数约束（应该接近目标值，如1.03）
+    total_frac = {frac_sum}
+    
+    # 约束函数（可调节约束强度）
+    step_function = np.power(total_frac - 1.03, 2.0) * self.constraint_strength
+    
+    # 总似然（使用逐步累加减少临时变量）
+    total_amplitude = {first_calc_var}
+    {total_amp_adds}
+    
+    likelihood = -np.sum(np.log(np.sum(dplex.dabs(total_amplitude), axis=1))) + 10000.0 * step_function
+    
+    return likelihood

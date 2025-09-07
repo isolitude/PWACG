@@ -5,17 +5,17 @@
 propagator_type = "BW"  
 mass = { value = 1.02, fixed = true}
 width = { value = 0.004, fixed = true}
-Sbc = { name = "phi_kk" }
+Sbc = { var_name = "phi_kk" }
 
 [resonances.phif0_980.propagators.B_propagator]
 propagator_type = "flatte980" 
 mass = { value = 0.9794812115574156, range = [0.98, 10.0], fixed = false, error = 0.0029114167854559173 }
 g_kk = { value = 0.10678616326827592, fixed = false, error = 0.010260657247901088 }
 rg = { value = 8.570187550432664, fixed = false, error = 1.348489540060868 }
-Sbc = { name = "f_kk" }
+Sbc = { var_name = "f_kk" }
 
 [resonances.phif0_980.Amplitude]
-AMP = { name = "phif0_kk"}
+AMP = { var_name = "phif0_kk"}
 
 const1 = { value = 0.1, fixed = true, error = 0.0 }
 const2 = { value = 0.1065182971468388, fixed = false, error = 0.003833456119689838 }
@@ -29,16 +29,16 @@ theta2 = { value = 0.03807025376236671, fixed = false, error = 0.003238280758590
 propagator_type = "BW"
 mass = { value = 1.02, fixed = true }
 width = { value = 0.004, fixed = true }
-Sbc = { name = "phi_kk" }
+Sbc = { var_name = "phi_kk" }
 
 [resonances.phif0_1710.propagators.B_propagator]
 propagator_type = "BW"
 mass = { value = 1.6761965590304995, range = [1.704, 1.0], fixed = false, error = 0.008608254171218993 }
 width = { value = 0.16270071108440043, range = [0.123, 1.0], fixed = false, error = 0.007928828044131218 }
-Sbc = { name = "f_kk" }
+Sbc = { var_name = "f_kk" }
 
 [resonances.phif0_1710.Amplitude]
-AMP = { name = "phif0_kk"}
+AMP = { var_name = "phif0_kk"}
 
 const1 = { value = 0.02201375198386279, fixed = false, error = 0.0028493281809777366 }
 const2 = { value = 0.007433204877151768, fixed = false, error = 0.0027873338673183225 }
@@ -52,16 +52,16 @@ theta2 = { value = -0.018544178045626723, fixed = false, error = 0.0022850703726
 propagator_type = "BW"
 mass = { value = 1.02, fixed = true }
 width = { value = 0.004, fixed = true }
-Sbc = { name = "phi_kk" }
+Sbc = { var_name = "phi_kk" }
 
 [resonances.phif2_1270.propagators.B_propagator]
 propagator_type = "flatte1270"
 mass = { value = 1.2896149318644679, range = [1.2755, 1.0], fixed = false, error = 0.008900150561499074 }
 width = { value = 0.1959796900380022, range = [0.1867, 1.0], fixed = false, error = 0.009003877508753227 }
-Sbc = { name = "f_kk" }
+Sbc = { var_name = "f_kk" }
 
 [resonances.phif2_1270.Amplitude]
-AMP = { name = "phif2_kk"}
+AMP = { var_name = "phif2_kk"}
 
 const1 = { value = -0.013533706721054747, fixed = false, error = 0.013059446776572923 }
 const2 = { value = -0.01650921272412254, fixed = false, error = 0.011103610207449996 }
@@ -81,16 +81,16 @@ theta5 = { value = -0.008718872479379924, fixed = false, error = 0.0093630067630
 propagator_type = "BW"
 mass = { value = 1.02, fixed = true }
 width = { value = 0.004, fixed = true }
-Sbc = { name = "phi_kk" }
+Sbc = { var_name = "phi_kk" }
 
 [resonances.phif2_1525.propagators.B_propagator]
 propagator_type = "BW"
 mass = { value = 1.5222602842746435, range = [1.517, 1.0], fixed = false, error = 0.0021852818767245097 }
 width = { value = 0.08576525399315078, range = [0.086, 1.0], fixed = false, error = 0.004480554483528854 }
-Sbc = { name = "f_kk" }
+Sbc = { var_name = "f_kk" }
 
 [resonances.phif2_1525.Amplitude]
-AMP = { name = "phif2_kk"}
+AMP = { var_name = "phif2_kk"}
 
 const1 = { value = -0.005345214125595505, fixed = false, error = 0.002361030920067052 }
 const2 = { value = 0.0031770703345810553, fixed = false, error = 0.0022601284491659272 }
@@ -110,16 +110,16 @@ theta5 = { value = -0.006053516058970728, fixed = false, error = 0.0016345295470
 propagator_type = "BW"
 mass = { value = 1.02, fixed = true }
 width = { value = 0.004, fixed = true }
-Sbc = { name = "phi_kk" }
+Sbc = { var_name = "phi_kk" }
 
 [resonances.phif2_2150.propagators.B_propagator]
 propagator_type = "BW"
 mass = { value = 2.1619576785269476, range = [2.157, 1.0], fixed = false, error = 0.009091748268572158 }
 width = { value = 0.15906049251159413, range = [0.152, 1.0], fixed = false, error = 0.009061189535661485 }
-Sbc = { name = "f_kk" }
+Sbc = { var_name = "f_kk" }
 
 [resonances.phif2_2150.Amplitude]
-AMP = { name = "phif2_kk"}
+AMP = { var_name = "phif2_kk"}
 
 const1 = { value = 0.004643720949518616, fixed = false, error = 0.004293173395970161 }
 const2 = { value = -0.0009682564746806725, fixed = false, error = 0.004579214352357212 }
@@ -139,16 +139,16 @@ theta5 = { value = -0.007232946300343621, fixed = false, error = 0.0039102533409
 propagator_type = "BW"
 mass = { value = 1.02, fixed = true }
 width = { value = 0.004, fixed = true }
-Sbc = { name = "phi_kk" }
+Sbc = { var_name = "phi_kk" }
 
 [resonances.phif2_2340.propagators.B_propagator]
 propagator_type = "BW"
 mass = { value = 2.547889297662712, range = [2.345, 0.01], fixed = false, error = 0.025714265576588485 }
 width = { value = 0.324001266488012, range = [0.322, 1.0], fixed = false, error = 0.008869958469754202 }
-Sbc = { name = "f_kk" }
+Sbc = { var_name = "f_kk" }
 
 [resonances.phif2_2340.Amplitude]
-AMP = { name = "phif2_kk"}
+AMP = { var_name = "phif2_kk"}
 
 const1 = { value = -0.15266341362240637, fixed = false, error = 0.0226276447864268 }
 const2 = { value = -0.05030214288962155, fixed = false, error = 0.01462254664631181 }

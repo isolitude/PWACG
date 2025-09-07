@@ -161,9 +161,7 @@ def calculate_BW_BW(phi_mass, phi_width, kk_f0_mass, kk_f0_width,
     bw_phi = BW(phi_mass, phi_width, phi_kk)
     
     # f0 共振态
-    bw_f0 = np.moveaxis(
-        vmap(partial(BW, Sbc=f_kk))(kk_f0_mass, kk_f0_width), 1, 0
-    )
+    bw_f0 = np.moveaxis(vmap(partial(BW, Sbc=f_kk))(kk_f0_mass, kk_f0_width), 1, 0)
     
     # 组合传播子
     bw_combined = dplex.deinsum("j, ij->ij", bw_phi, bw_f0)
