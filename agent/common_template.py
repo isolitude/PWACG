@@ -107,19 +107,19 @@ def prepare_data_for_jax(data, device=None):
 # SECTION: PHYSICS_FUNCTIONS
 # Physics calculation functions (resonance shape functions)
 # ==============================================================================
-def BW(self, m_,w_,Sbc):
+def BW(m_,w_,Sbc):
     l = (Sbc.shape)[0]
     temp = dplex.dconstruct(m_*m_ - Sbc,  -m_*w_*np.ones(l))
     return dplex.ddivide(1.0, temp)
 
-def BW_relativity(self, m_,w_,Sbc):
+def BW_relativity(m_,w_,Sbc):
     gamma=np.sqrt(m_*m_*(m_*m_+w_*w_))
     k = np.sqrt(2*np.sqrt(2)*m_*np.abs(w_)*gamma/np.pi/np.sqrt(m_*m_+gamma))
     l = (Sbc.shape)[0]
     temp = dplex.dconstruct(m_*m_ - Sbc,  -m_*w_*np.ones(l))
     return dplex.ddivide(k, temp)
 
-def flatte980(self,m_,g_pipi,rg,Sbc):
+def flatte980(m_,g_pipi,rg,Sbc):
     g_kk = rg * g_pipi
     m_k = 0.493677
     m_pi = 0.13957061
@@ -128,7 +128,7 @@ def flatte980(self,m_,g_pipi,rg,Sbc):
     tmp_A = dplex.dconstruct(m_**2 - Sbc, -1*(g_pipi*rho_pipi + g_kk*rho_kk))
     return dplex.ddivide(1.0, tmp_A)
 
-def flatte1270(self,m_,w_,Sbc):
+def flatte1270(m_,w_,Sbc):
     rm = m_ * m_
     gr = m_ * w_
     q2r = 0.25 * rm - 0.0194792
@@ -140,7 +140,7 @@ def flatte1270(self,m_,w_,Sbc):
     tmp = dplex.dconstruct(Sbc - rm, g1)
     return dplex.ddivide(gr, tmp)
 
-def flatte500(self,m_,b1,b2,b3,b4,b5,Sbc):
+def flatte500(m_,b1,b2,b3,b4,b5,Sbc):
     m2 = m_*m_
     rp = 0.139556995
     mpi2d2 = 0.009739946882
@@ -159,8 +159,8 @@ def flatte500(self,m_,b1,b2,b3,b4,b5,Sbc):
 # Composite resonance calculation function template
 # ==============================================================================
 def calculate_{calculation_name}({A_propagator_param}, {B_propagator_param}, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
-    A_propagator = BW({A_propagator_param})
-    B_propagator = BW({B_propagator_param})
+    A_propagator = {A_propagator_type}({A_propagator_param})
+    B_propagator = {B_propagator_type}({B_propagator_param})
     propagator_combined = dplex.deinsum("j, ij->ij", B_propagator, A_propagator)
     const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
     result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)

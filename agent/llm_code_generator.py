@@ -75,7 +75,7 @@ def checkDirectoryStructure():
 class LLMResonanceGenerator:
     """LLM驱动的共振态代码生成器"""
     
-    def __init__(self, config_path: str = "agent/resonances_config.toml", model: str = "o3-pro-2025-06-10"):
+    def __init__(self, config_path: str = "agent/resonances_config.toml", model: str = "o3-pro-2025-06-10", model_check: str = "gpt-5-2025-08-07"):
         """
         初始化LLM代码生成器
         
@@ -92,6 +92,7 @@ class LLMResonanceGenerator:
         
         self.config_path = config_path
         self.model = model
+        self.model_check = model_check
         self.config = self.load_config()
 
         # 解析模板部分
@@ -403,13 +404,26 @@ Resonance_len_in_Group: {len(ana_value) > 1}
             
             print(f"✨ 函数生成成功！代码长度: {len(generated_code)} 字符")
 
+            check_prompt = f"""{prompt}
+Please strictly check the following code for compliance with all the rules mentioned in the prompt. If any rule is violated, regenerate the code until it fully complies with all the rules.
+Code:
+{generated_code}
+"""
+
+            check_out = self.llm_client.responses(
+                input_text=check_prompt,
+                model=self.model_check
+            )
+            check_result = self.llm_client.extract_content(check_out)
+            print(f"🔍 代码检查结果: {check_result}")
+
             load_data_cache[prompt_hash] = {
                 "prompt": prompt,
                 "generated_code": generated_code
             }
             self._save_cache(load_data_cache, cache_file)
 
-            return generated_code
+            return check_result
             
         except Exception as e:
             print(f"❌ LLM代码生成失败: {e}")
@@ -514,8 +528,7 @@ def main():
     
     try:
         # 创建生成器
-        generator = LLMResonanceGenerator(model="gpt-5-mini-2025-08-07")
-        # generator = LLMResonanceGenerator(model="gpt-5-2025-08-07")
+        generator = LLMResonanceGenerator(model="gpt-5-mini-2025-08-07", model_check="gpt-5-2025-08-07")
         
         # 打印配置摘要
         generator.print_config_summary()
