@@ -55,54 +55,6 @@ def setup_logging():
         logging.config.dictConfig(LOGGING_CONFIG)
     return logging.getLogger("fit")
 
-
-# ==============================================================================
-# SECTION: DATA_LOADING
-# Data loading function template
-# ==============================================================================
-def load_data():
-    """Load all required data"""
-    data = {}
-    
-    # Load real data
-    data['data_{var}'] = onp.load("data/real_data/{var}.npy")
-
-    # Load MC data
-    data['mc_{var}'] = onp.load("data/mc_truth/{var}.npy")
-
-    # MC truth data (for constraints)
-    data['truth_{var}'] = data['mc_{var}'][:, 0:150000]
-    
-    # Weight data
-    try:
-        data['wt_data_kk'] = onp.load("data/weight/weight_kk.npy")
-    except FileNotFoundError:
-        data['wt_data_kk'] = onp.ones_like(data['data_phi_kk'])
-    
-    return data
-
-def normalize_data(data):
-    """数据归一化处理"""
-    # 计算归一化因子
-    regular_{var} = 1. / onp.average(
-        onp.sqrt(onp.sum(onp.asarray(data['mc_{var}'])**2, axis=2)), axis=1
-    )
-    
-    # 应用归一化
-    data['data_{var}'] = onp.einsum("jkl,j->jkl", data['data_{var}'], regular_{var})
-    data['mc_{var}'] = onp.einsum("jkl,j->jkl", data['mc_{var}'], regular_{var})
-    data['truth_{var}'] = onp.einsum("jkl,j->jkl", data['truth_{var}'], regular_{var})
-    
-    return data
-
-def prepare_data_for_jax(data, device=None):
-    """将数据转换为JAX格式并放到指定设备"""
-    jax_data = {}
-    for key, value in data.items():
-        jax_data[key] = device_put(np.array(value), device=device)
-    return jax_data
-
-
 # ==============================================================================
 # SECTION: PHYSICS_FUNCTIONS
 # Physics calculation functions (resonance shape functions)
@@ -154,52 +106,106 @@ def flatte500(m_,b1,b2,b3,b4,b5,Sbc):
     return dplex.ddivide(1.0, tmp)
 
 
-# ==============================================================================
-# SECTION: RESONANCE_CALCULATIONS
-# Composite resonance calculation function template
-# ==============================================================================
-def calculate_{calculation_name}({A_propagator_param}, {B_propagator_param}, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
-    A_propagator = {A_propagator_type}({A_propagator_param})
-    B_propagator = {B_propagator_type}({B_propagator_param})
-    propagator_combined = dplex.deinsum("j, ij->ij", B_propagator, A_propagator)
-    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
-    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
-    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
-    return result
 
-# ==============================================================================
+#==============================================================================
 # SECTION: likelihood_functions
 # likelihood function templates
-def data_likelihood_{channel}(args):
-    """数据似然函数（类成员版本，最高效）"""
-    # 提取参数（使用公共函数）
+#==============================================================================
+def data_likelihood_kk(args):
     params = extract_parameters(args)
-    
-    # 计算各个贡献（直接使用成员变量）
-    {calc_calls}
-    
-    # ========== 完整的约束项计算 ==========
-    # 使用component版本的函数计算所有约束项
-    {component_calls}
-    
-    # 计算总的约束分母（所有共振态的总和）
+    data_phif0_kk_BW_BW = calculate_BW_BW(
+        phi_mass, phi_width, data_phi_kk,
+        params['phif0_kk_BW_BW_mass'], params['phif0_kk_BW_BW_width'], data_f_kk,
+        data_phif0_kk, params['phif0_kk_BW_BW_const'], params['phif0_kk_BW_BW_theta']
+    )
+    data_phif2_kk_BW_BW = calculate_BW_BW(
+        phi_mass, phi_width, data_phi_kk,
+        params['phif2_kk_BW_BW_mass'], params['phif2_kk_BW_BW_width'], data_f_kk,
+        data_phif2_kk, params['phif2_kk_BW_BW_const'], params['phif2_kk_BW_BW_theta']
+    )
+    data_phif2_kk_BW_flatte1270 = calculate_BW_flatte1270(
+        phi_mass, phi_width, data_phi_kk,
+        params['phif2_kk_BW_flatte1270_mass'], params['phif2_kk_BW_flatte1270_width'], data_f_kk,
+        data_phif2_kk, params['phif2_kk_BW_flatte1270_const'], params['phif2_kk_BW_flatte1270_theta']
+    )
+    component_data_phif0_kk_BW_BW = component_BW_BW(
+        phi_mass, phi_width, truth_phi_kk,
+        params['phif0_kk_BW_BW_mass'], params['phif0_kk_BW_BW_width'], truth_f_kk,
+        truth_phif0_kk, params['phif0_kk_BW_BW_const'], params['phif0_kk_BW_BW_theta']
+    )
+    component_data_phif2_kk_BW_BW = component_BW_BW(
+        phi_mass, phi_width, truth_phi_kk,
+        params['phif2_kk_BW_BW_mass'], params['phif2_kk_BW_BW_width'], truth_f_kk,
+        truth_phif2_kk, params['phif2_kk_BW_BW_const'], params['phif2_kk_BW_BW_theta']
+    )
+    component_data_phif2_kk_BW_flatte1270 = component_BW_flatte1270(
+        phi_mass, phi_width, truth_phi_kk,
+        params['phif2_kk_BW_flatte1270_mass'], params['phif2_kk_BW_flatte1270_width'], truth_f_kk,
+        truth_phif2_kk, params['phif2_kk_BW_flatte1270_const'], params['phif2_kk_BW_flatte1270_theta']
+    )
     sum_frac = np.sum(dplex.dabs(
-        {sum_terms}
+        np.einsum("mljk->mjk", component_data_phif0_kk_BW_BW) +
+        np.einsum("mljk->mjk", component_data_phif2_kk_BW_BW) +
+        np.einsum("mljk->mjk", component_data_phif2_kk_BW_flatte1270)
     ))
-    
-    # 计算各个共振态的分数约束
-    {frac_terms}
-    
-    # 总分数约束（应该接近目标值，如1.03）
-    total_frac = {frac_sum}
-    
-    # 约束函数（可调节约束强度）
-    step_function = np.power(total_frac - 1.03, 2.0) * self.constraint_strength
-    
-    # 总似然（使用逐步累加减少临时变量）
-    total_amplitude = {first_calc_var}
-    {total_amp_adds}
-    
+    frac_f0_BW = np.sum(np.einsum("ljk->l", dplex.dabs(component_data_phif0_kk_BW_BW)) / sum_frac)
+    frac_f2_BW = np.sum(np.einsum("ljk->l", dplex.dabs(component_data_phif2_kk_BW_BW)) / sum_frac)
+    frac_f2_flatte = np.sum(np.einsum("ljk->l", dplex.dabs(component_data_phif2_kk_BW_flatte1270)) / sum_frac)
+    total_frac = frac_f0_BW + frac_f2_BW + frac_f2_flatte
+    step_function = np.power(total_frac - 1.03, 2.0) * constraint_strength
+    total_amplitude = data_phif0_kk_BW_BW
+    total_amplitude = total_amplitude + data_phif2_kk_BW_BW
+    total_amplitude = total_amplitude + data_phif2_kk_BW_flatte1270
     likelihood = -np.sum(np.log(np.sum(dplex.dabs(total_amplitude), axis=1))) + 10000.0 * step_function
-    
     return likelihood
+
+def mc_likelihood_kk(args):
+    params = extract_parameters(args)
+    total_mc = calculate_BW_flatte980(
+        phi_mass, phi_width, mc_phi_kk,
+        params['phif0_kk_BW_flatte980_mass'], params['phif0_kk_BW_flatte980_g_kk'], params['phif0_kk_BW_flatte980_rg'], mc_f_kk,
+        mc_phif0_kk, params['phif0_kk_BW_flatte980_amplitude_consts'], params['phif0_kk_BW_flatte980_amplitude_thetas']
+    )
+    total_mc = total_mc + calculate_BW_BW(
+        phi_mass, phi_width, mc_phi_kk,
+        params['phif0_kk_BW_BW_mass'], params['phif0_kk_BW_BW_width'], mc_f_kk,
+        mc_phif0_kk, params['phif0_kk_BW_BW_amplitude_consts'], params['phif0_kk_BW_BW_amplitude_thetas']
+    )
+    total_mc = total_mc + calculate_BW_flatte1270(
+        phi_mass, phi_width, mc_phi_kk,
+        params['phif2_kk_BW_flatte1270_mass'], params['phif2_kk_BW_flatte1270_width'], mc_f_kk,
+        mc_phif2_kk, params['phif2_kk_BW_flatte1270_amplitude_consts'], params['phif2_kk_BW_flatte1270_amplitude_thetas']
+    )
+    total_mc = total_mc + calculate_BW_BW(
+        phi_mass, phi_width, mc_phi_kk,
+        params['phif2_kk_BW_BW_mass'], params['phif2_kk_BW_BW_width'], mc_f_kk,
+        mc_phif2_kk, params['phif2_kk_BW_BW_amplitude_consts'], params['phif2_kk_BW_BW_amplitude_thetas']
+    )
+    return np.mean(np.sum(dplex.dabs(total_mc), axis=1))
+
+
+#==============================================================================
+# SECTION: combined_likelihood_function
+# likelihood function templates
+#==============================================================================
+
+def combined_likelihood(self, args):
+    """组合似然函数: data_likelihood + datasize * log(mc_likelihood)"""
+    # 计算data似然
+    data_lh = data_likelihood_kk(args)
+    
+    # 计算MC似然
+    mc_lh = mc_likelihood_kk(args)
+    
+    # 组合似然函数（使用类成员变量data_size）
+    combined_lh = data_lh + data_size * np.log(mc_lh)
+    
+    return combined_lh
+
+def hvp_combined_likelihood(self, args, vector):
+    """计算Hessian-vector product for combined likelihood"""
+    return jvp(grad(combined_likelihood), [args], [vector])[1]
+
+def set_constraint_strength(self, strength):
+    """设置约束强度"""
+    constraint_strength = strength

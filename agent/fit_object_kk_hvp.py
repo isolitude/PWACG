@@ -304,185 +304,180 @@ def extract_parameters(args):
 # ==============================================================================
 # 似然计算类（最优化版本，带HVP支持）
 # ==============================================================================
-class PWALikelihoodCalculatorHVP:
-    """PWA似然计算类 - 数据预解包，支持HVP优化"""
+# 实际数据
+data_phi_kk = jax_data['data_phi_kk']
+data_f_kk = jax_data['data_f_kk']
+data_phif0_kk = jax_data['data_phif0_kk']
+data_phif2_kk = jax_data['data_phif2_kk']
+
+# MC数据
+mc_phi_kk = jax_data['mc_phi_kk']
+mc_f_kk = jax_data['mc_f_kk']
+mc_phif0_kk = jax_data['mc_phif0_kk']
+mc_phif2_kk = jax_data['mc_phif2_kk']
+
+# Truth数据（用于约束）
+truth_phi_kk = jax_data['truth_phi_kk']
+truth_f_kk = jax_data['truth_f_kk']
+truth_phif0_kk = jax_data['truth_phif0_kk']
+truth_phif2_kk = jax_data['truth_phif2_kk']
+
+# 权重数据
+wt_data_kk = jax_data['wt_data_kk']
+
+# 数据大小（用于似然函数计算）
+data_size = len(data_phi_kk)
+
+# 约束强度（可调节）
+constraint_strength = 0.0
+
+def data_likelihood_kk(args):
+    """数据似然函数（类成员版本，最高效）"""
+    # 提取参数（使用公共函数）
+    params = extract_parameters(args)
     
-    def __init__(self, jax_data):
-        """初始化时预解包所有数据，避免重复访问"""
-        # 实际数据
-        self.data_phi_kk = jax_data['data_phi_kk']
-        self.data_f_kk = jax_data['data_f_kk']
-        self.data_phif0_kk = jax_data['data_phif0_kk']
-        self.data_phif2_kk = jax_data['data_phif2_kk']
-        
-        # MC数据
-        self.mc_phi_kk = jax_data['mc_phi_kk']
-        self.mc_f_kk = jax_data['mc_f_kk']
-        self.mc_phif0_kk = jax_data['mc_phif0_kk']
-        self.mc_phif2_kk = jax_data['mc_phif2_kk']
-        
-        # Truth数据（用于约束）
-        self.truth_phi_kk = jax_data['truth_phi_kk']
-        self.truth_f_kk = jax_data['truth_f_kk']
-        self.truth_phif0_kk = jax_data['truth_phif0_kk']
-        self.truth_phif2_kk = jax_data['truth_phif2_kk']
-        
-        # 权重数据
-        self.wt_data_kk = jax_data['wt_data_kk']
-        
-        # 数据大小（用于似然函数计算）
-        self.data_size = len(self.data_phi_kk)
-        
-        # 约束强度（可调节）
-        self.constraint_strength = 0.0
+    # 计算各个贡献（直接使用成员变量）
+    data_phif0_kk_BW_flatte980 = calculate_BW_flatte980(
+        params['phi_mass'], params['phi_width'], params['kk_f980_mass'], 
+        params['kk_f980_g_kk'], params['kk_f980_rg'],
+        params['kk_f980_const'], params['kk_f980_theta'], 
+        data_phi_kk, data_f_kk, data_phif0_kk
+    )
     
-    def data_likelihood_kk(self, args):
-        """数据似然函数（类成员版本，最高效）"""
-        # 提取参数（使用公共函数）
-        params = extract_parameters(args)
-        
-        # 计算各个贡献（直接使用成员变量）
-        data_phif0_kk_BW_flatte980 = calculate_BW_flatte980(
-            params['phi_mass'], params['phi_width'], params['kk_f980_mass'], 
-            params['kk_f980_g_kk'], params['kk_f980_rg'],
-            params['kk_f980_const'], params['kk_f980_theta'], 
-            self.data_phi_kk, self.data_f_kk, self.data_phif0_kk
-        )
-        
-        data_phif0_kk_BW_BW = calculate_BW_BW(
-            params['phi_mass'], params['phi_width'], params['kk_f0_mass'], params['kk_f0_width'],
-            params['kk_f0_const'], params['kk_f0_theta'],
-            self.data_phi_kk, self.data_f_kk, self.data_phif0_kk
-        )
-        
-        data_phif2_kk_BW_flatte1270 = calculate_BW_flatte1270(
-            params['phi_mass'], params['phi_width'], params['kk_f1270_mass'], params['kk_f1270_width'],
-            params['kk_f1270_const'], params['kk_f1270_theta'],
-            self.data_phi_kk, self.data_f_kk, self.data_phif2_kk
-        )
-        
-        data_phif2_kk_BW_BW = calculate_BW_BW(
-            params['phi_mass'], params['phi_width'], params['kk_f2_mass'], params['kk_f2_width'],
-            params['kk_f2_const'], params['kk_f2_theta'],
-            self.data_phi_kk, self.data_f_kk, self.data_phif2_kk
-        )
-        
-        # ========== 完整的约束项计算 ==========
-        # 使用lasso版本的函数计算所有约束项
-        lasso_data_phif0_kk_BW_flatte980 = lasso_calculate_BW_flatte980(
-            params['phi_mass'], params['phi_width'], params['kk_f980_mass'], 
-            params['kk_f980_g_kk'], params['kk_f980_rg'],
-            params['kk_f980_const'], params['kk_f980_theta'],
-            self.truth_phi_kk, self.truth_f_kk, self.truth_phif0_kk
-        )
-        
-        lasso_data_phif0_kk_BW_BW = lasso_calculate_BW_BW(
-            params['phi_mass'], params['phi_width'], params['kk_f0_mass'], params['kk_f0_width'],
-            params['kk_f0_const'], params['kk_f0_theta'],
-            self.truth_phi_kk, self.truth_f_kk, self.truth_phif0_kk
-        )
-        
-        lasso_data_phif2_kk_BW_flatte1270 = lasso_calculate_BW_flatte1270(
-            params['phi_mass'], params['phi_width'], params['kk_f1270_mass'], params['kk_f1270_width'],
-            params['kk_f1270_const'], params['kk_f1270_theta'],
-            self.truth_phi_kk, self.truth_f_kk, self.truth_phif2_kk
-        )
-        
-        lasso_data_phif2_kk_BW_BW = lasso_calculate_BW_BW(
-            params['phi_mass'], params['phi_width'], params['kk_f2_mass'], params['kk_f2_width'],
-            params['kk_f2_const'], params['kk_f2_theta'],
-            self.truth_phi_kk, self.truth_f_kk, self.truth_phif2_kk
-        )
-        
-        # 计算总的约束分母（所有共振态的总和）
-        sum_frac = np.sum(dplex.dabs(
-            np.einsum("mljk->mjk", lasso_data_phif0_kk_BW_flatte980) +
-            np.einsum("mljk->mjk", lasso_data_phif0_kk_BW_BW) +
-            np.einsum("mljk->mjk", lasso_data_phif2_kk_BW_flatte1270) +
-            np.einsum("mljk->mjk", lasso_data_phif2_kk_BW_BW)
-        ))
-        
-        # 计算各个共振态的分数约束
-        frac_f980_flatte = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif0_kk_BW_flatte980)) / sum_frac)
-        frac_f0_BW = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif0_kk_BW_BW)) / sum_frac)
-        frac_f1270_flatte = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif2_kk_BW_flatte1270)) / sum_frac)
-        frac_f2_BW = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif2_kk_BW_BW)) / sum_frac)
-        
-        # 总分数约束（应该接近目标值，如1.03）
-        total_frac = frac_f980_flatte + frac_f0_BW + frac_f1270_flatte + frac_f2_BW
-        
-        # 约束函数（可调节约束强度）
-        step_function = np.power(total_frac - 1.03, 2.0) * self.constraint_strength
-        
-        # 总似然（使用逐步累加减少临时变量）
-        total_amplitude = data_phif0_kk_BW_flatte980
-        total_amplitude = total_amplitude + data_phif0_kk_BW_BW
-        total_amplitude = total_amplitude + data_phif2_kk_BW_flatte1270
-        total_amplitude = total_amplitude + data_phif2_kk_BW_BW
-        
-        likelihood = -np.sum(np.log(np.sum(dplex.dabs(total_amplitude), axis=1))) + 10000.0 * step_function
-        
-        return likelihood
+    data_phif0_kk_BW_BW = calculate_BW_BW(
+        params['phi_mass'], params['phi_width'], params['kk_f0_mass'], params['kk_f0_width'],
+        params['kk_f0_const'], params['kk_f0_theta'],
+        data_phi_kk, data_f_kk, data_phif0_kk
+    )
     
-    def mc_likelihood_kk(self, args):
-        """MC似然函数（类成员版本，最高效）"""
-        # 复用参数提取函数
-        params = extract_parameters(args)
-        
-        # 计算所有MC贡献（逐步累加，直接使用成员变量）
-        total_mc = calculate_BW_flatte980(
-            params['phi_mass'], params['phi_width'], params['kk_f980_mass'], 
-            params['kk_f980_g_kk'], params['kk_f980_rg'],
-            params['kk_f980_const'], params['kk_f980_theta'],
-            self.mc_phi_kk, self.mc_f_kk, self.mc_phif0_kk
-        )
-        
-        total_mc = total_mc + calculate_BW_BW(
-            params['phi_mass'], params['phi_width'], params['kk_f0_mass'], params['kk_f0_width'],
-            params['kk_f0_const'], params['kk_f0_theta'],
-            self.mc_phi_kk, self.mc_f_kk, self.mc_phif0_kk
-        )
-        
-        total_mc = total_mc + calculate_BW_flatte1270(
-            params['phi_mass'], params['phi_width'], params['kk_f1270_mass'], params['kk_f1270_width'],
-            params['kk_f1270_const'], params['kk_f1270_theta'],
-            self.mc_phi_kk, self.mc_f_kk, self.mc_phif2_kk
-        )
-        
-        total_mc = total_mc + calculate_BW_BW(
-            params['phi_mass'], params['phi_width'], params['kk_f2_mass'], params['kk_f2_width'],
-            params['kk_f2_const'], params['kk_f2_theta'],
-            self.mc_phi_kk, self.mc_f_kk, self.mc_phif2_kk
-        )
-        
-        # 返回总MC积分
-        return np.mean(np.sum(dplex.dabs(total_mc),axis=1))
+    data_phif2_kk_BW_flatte1270 = calculate_BW_flatte1270(
+        params['phi_mass'], params['phi_width'], params['kk_f1270_mass'], params['kk_f1270_width'],
+        params['kk_f1270_const'], params['kk_f1270_theta'],
+        data_phi_kk, data_f_kk, data_phif2_kk
+    )
     
-    def combined_likelihood(self, args):
-        """组合似然函数: data_likelihood + datasize * log(mc_likelihood)"""
-        # 计算data似然
-        data_lh = self.data_likelihood_kk(args)
-        
-        # 计算MC似然
-        mc_lh = self.mc_likelihood_kk(args)
-        
-        # 组合似然函数（使用类成员变量data_size）
-        combined_lh = data_lh + self.data_size * np.log(mc_lh)
-        
-        return combined_lh
+    data_phif2_kk_BW_BW = calculate_BW_BW(
+        params['phi_mass'], params['phi_width'], params['kk_f2_mass'], params['kk_f2_width'],
+        params['kk_f2_const'], params['kk_f2_theta'],
+        data_phi_kk, data_f_kk, data_phif2_kk
+    )
     
-    def hvp_combined_likelihood(self, args, vector):
-        """计算Hessian-vector product for combined likelihood"""
-        return jvp(grad(self.combined_likelihood), [args], [vector])[1]
+    # ========== 完整的约束项计算 ==========
+    # 使用lasso版本的函数计算所有约束项
+    lasso_data_phif0_kk_BW_flatte980 = lasso_calculate_BW_flatte980(
+        params['phi_mass'], params['phi_width'], params['kk_f980_mass'], 
+        params['kk_f980_g_kk'], params['kk_f980_rg'],
+        params['kk_f980_const'], params['kk_f980_theta'],
+        truth_phi_kk, truth_f_kk, truth_phif0_kk
+    )
     
-    def set_constraint_strength(self, strength):
-        """设置约束强度"""
-        self.constraint_strength = strength
+    lasso_data_phif0_kk_BW_BW = lasso_calculate_BW_BW(
+        params['phi_mass'], params['phi_width'], params['kk_f0_mass'], params['kk_f0_width'],
+        params['kk_f0_const'], params['kk_f0_theta'],
+        truth_phi_kk, truth_f_kk, truth_phif0_kk
+    )
+    
+    lasso_data_phif2_kk_BW_flatte1270 = lasso_calculate_BW_flatte1270(
+        params['phi_mass'], params['phi_width'], params['kk_f1270_mass'], params['kk_f1270_width'],
+        params['kk_f1270_const'], params['kk_f1270_theta'],
+        truth_phi_kk, truth_f_kk, truth_phif2_kk
+    )
+    
+    lasso_data_phif2_kk_BW_BW = lasso_calculate_BW_BW(
+        params['phi_mass'], params['phi_width'], params['kk_f2_mass'], params['kk_f2_width'],
+        params['kk_f2_const'], params['kk_f2_theta'],
+        truth_phi_kk, truth_f_kk, truth_phif2_kk
+    )
+    
+    # 计算总的约束分母（所有共振态的总和）
+    sum_frac = np.sum(dplex.dabs(
+        np.einsum("mljk->mjk", lasso_data_phif0_kk_BW_flatte980) +
+        np.einsum("mljk->mjk", lasso_data_phif0_kk_BW_BW) +
+        np.einsum("mljk->mjk", lasso_data_phif2_kk_BW_flatte1270) +
+        np.einsum("mljk->mjk", lasso_data_phif2_kk_BW_BW)
+    ))
+    
+    # 计算各个共振态的分数约束
+    frac_f980_flatte = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif0_kk_BW_flatte980)) / sum_frac)
+    frac_f0_BW = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif0_kk_BW_BW)) / sum_frac)
+    frac_f1270_flatte = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif2_kk_BW_flatte1270)) / sum_frac)
+    frac_f2_BW = np.sum(np.einsum("ljk->l", dplex.dabs(lasso_data_phif2_kk_BW_BW)) / sum_frac)
+    
+    # 总分数约束（应该接近目标值，如1.03）
+    total_frac = frac_f980_flatte + frac_f0_BW + frac_f1270_flatte + frac_f2_BW
+    
+    # 约束函数（可调节约束强度）
+    step_function = np.power(total_frac - 1.03, 2.0) * constraint_strength
+    
+    # 总似然（使用逐步累加减少临时变量）
+    total_amplitude = data_phif0_kk_BW_flatte980
+    total_amplitude = total_amplitude + data_phif0_kk_BW_BW
+    total_amplitude = total_amplitude + data_phif2_kk_BW_flatte1270
+    total_amplitude = total_amplitude + data_phif2_kk_BW_BW
+    
+    likelihood = -np.sum(np.log(np.sum(dplex.dabs(total_amplitude), axis=1))) + 10000.0 * step_function
+    
+    return likelihood
+
+def mc_likelihood_kk(args):
+    """MC似然函数（类成员版本，最高效）"""
+    # 复用参数提取函数
+    params = extract_parameters(args)
+    
+    # 计算所有MC贡献（逐步累加，直接使用成员变量）
+    total_mc = calculate_BW_flatte980(
+        params['phi_mass'], params['phi_width'], params['kk_f980_mass'], 
+        params['kk_f980_g_kk'], params['kk_f980_rg'],
+        params['kk_f980_const'], params['kk_f980_theta'],
+        mc_phi_kk, mc_f_kk, mc_phif0_kk
+    )
+    
+    total_mc = total_mc + calculate_BW_BW(
+        params['phi_mass'], params['phi_width'], params['kk_f0_mass'], params['kk_f0_width'],
+        params['kk_f0_const'], params['kk_f0_theta'],
+        mc_phi_kk, mc_f_kk, mc_phif0_kk
+    )
+    
+    total_mc = total_mc + calculate_BW_flatte1270(
+        params['phi_mass'], params['phi_width'], params['kk_f1270_mass'], params['kk_f1270_width'],
+        params['kk_f1270_const'], params['kk_f1270_theta'],
+        mc_phi_kk, mc_f_kk, mc_phif2_kk
+    )
+    
+    total_mc = total_mc + calculate_BW_BW(
+        params['phi_mass'], params['phi_width'], params['kk_f2_mass'], params['kk_f2_width'],
+        params['kk_f2_const'], params['kk_f2_theta'],
+        mc_phi_kk, mc_f_kk, mc_phif2_kk
+    )
+    
+    # 返回总MC积分
+    return np.mean(np.sum(dplex.dabs(total_mc),axis=1))
+
+def combined_likelihood(self, args):
+    """组合似然函数: data_likelihood + datasize * log(mc_likelihood)"""
+    # 计算data似然
+    data_lh = data_likelihood_kk(args)
+    
+    # 计算MC似然
+    mc_lh = mc_likelihood_kk(args)
+    
+    # 组合似然函数（使用类成员变量data_size）
+    combined_lh = data_lh + data_size * np.log(mc_lh)
+    
+    return combined_lh
+
+def hvp_combined_likelihood(self, args, vector):
+    """计算Hessian-vector product for combined likelihood"""
+    return jvp(grad(combined_likelihood), [args], [vector])[1]
+
+def set_constraint_strength(self, strength):
+    """设置约束强度"""
+    constraint_strength = strength
 
 # ==============================================================================
 # 主拟合函数（使用Newton-CG和HVP）
 # ==============================================================================
-def hvp_fit():
+if __name__  == "__main__":
     """使用Newton-CG方法和HVP的拟合函数"""
     logger = setup_logging()
     logger.info("开始HVP优化版PWA拟合（Newton-CG方法）")
@@ -498,8 +493,6 @@ def hvp_fit():
     
     # 创建HVP优化版似然计算器
     logger.info("创建HVP优化版似然计算器...")
-    calculator = PWALikelihoodCalculatorHVP(jax_data)
-    logger.info(f"数据大小: {calculator.data_size}")
     
     # 初始参数
     args_list = onp.array([
@@ -534,9 +527,9 @@ def hvp_fit():
     
     # 编译JAX函数（使用HVP版本）
     logger.info("编译JAX函数（HVP版本）...")
-    jit_likelihood = jit(calculator.combined_likelihood)
-    jit_grad = jit(grad(calculator.combined_likelihood))
-    jit_hvp = jit(calculator.hvp_combined_likelihood)
+    jit_likelihood = jit(combined_likelihood)
+    jit_grad = jit(grad(combined_likelihood))
+    jit_hvp = jit(hvp_combined_likelihood)
     
     # 测试编译
     test_result = jit_likelihood(args_float)
@@ -614,18 +607,3 @@ def hvp_fit():
     
     logger.info(f"结果已保存到 {output_dir}/hvp_fit_result.json")
     
-    return results
-
-# ==============================================================================
-# 主程序入口
-# ==============================================================================
-if __name__ == "__main__":
-    try:
-        results = hvp_fit()
-        print("HVP拟合成功完成!")
-        print(f"最终似然值: {results['final_likelihood']}")
-        print(f"Hessian调用次数: {results['hessian_evaluations']}")
-    except Exception as e:
-        print(f"拟合过程中出现错误: {e}")
-        import traceback
-        traceback.print_exc()

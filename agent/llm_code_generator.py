@@ -181,14 +181,14 @@ class LLMResonanceGenerator:
     def get_all_resonance_data(self) -> List[str]:
         # 提取所有 Sbc
         sbc_list = [
-            prop["Sbc"]["var_name"]
+            prop["Sbc"]
             for resonance in self.config["resonances"].values()
             for prop in resonance.get("propagators", {}).values()
             if "Sbc" in prop
         ]
         # 提取所有 AMP
         amp_list = [
-            resonance["Amplitude"]["AMP"]["var_name"]
+            resonance["Amplitude"]["AMP"]
             for resonance in self.config["resonances"].values()
             if "AMP" in resonance.get("Amplitude", {})
         ]
@@ -221,27 +221,45 @@ class LLMResonanceGenerator:
         all_resonances_info = self.config.get('resonances', {})
         all_resonances_info = json.dumps(all_resonances_info, indent=4)
         prompt = f"""
-toml config:
-{all_resonances_info}
+toml 配置：
+{all_resonances_info}（注：此处为变量，指“所有共振信息”）
 
-Task:
-Group resonances by `propagator_type`.
+任务：
+1. 按“传播子类型”（propagator_type）对共振（resonances）进行分组。
+    定义：
+    - 相似的“A传播子”（A_propagator）必须具有相同的“传播子类型”（propagator_type）。
+    - 相似的“B传播子”（B_propagator）必须具有相同的“传播子类型”（propagator_type）。
+    组名称：
+    将“A传播子”（A_propagator）类型与“B传播子”（B_propagator）类型用下划线（_）组合。示例："TypeA_TypeB"（即“A类型_B类型”）。
 
-Definition:
-- Similar `A_propagator` must have the same `propagator_type`.
-- Similar `B_propagator` must have the same `propagator_type`.
+2. 因为在计算的时候，同一类型的传播子可以向量化计算，但是不同振幅参数的传播子不能向量化计算。因此按照传播子类型+振幅参数的方式进行分组。
+    定义：
+    - 具有任务1中定义的相同“A传播子”和“B传播子”类型。
+    - 具有相同的振幅名称（AMP的值）。
 
-Group Names:
-Combine `A_propagator` and `B_propagator` types with an underscore. Example: `"TypeA_TypeB"`.
+3. 我们需要参数值的列表，根据任务2的分组结果，输出组内参数的列表。
+    定义：
+    - 对于每个组合并组内的共振态的参数，输出参数的值列表。
+    - 合并的方式为共振态之间相同的参数合并为一个参数，value值组合为列表。
+    - 共振态Amplitude参数合并为二维list，例如[[a_resonance_const1, a_resonance_const2], [b_resonance_const1, b_resonance_const2]]。
 
-Output Format:
+输出格式：
 {{
-    "TypeA_TypeB": ["resonance_name_1", "resonance_name_2"],
-    "TypeA_TypeC": ["resonance_name_3"]
+    "propagator_classification": {{
+    "TypeA_TypeB": ["resonance_name_1"（共振名称1）, "resonance_name_2"（共振名称2）],
+    "TypeA_TypeC": ["resonance_name_3"（共振名称3）]
+    }},
+    "amplitude_classification": {{
+    "AMP_TypeA_TypeB": ["resonance_name_1"（共振名称1）, "resonance_name_2"（共振名称2）],
+    "AMP_TypeA_TypeC": ["resonance_name_3"（共振名称3）]
+    }},
+    "parameter_lists": {{
+    "AMP_TypeA_TypeB": ["mass":[0.980, 1.27], "width":[0.05, 0.15], "const":[0.5, 1.0], "theta":[0.0, 1.57]],
+    "AMP_TypeA_TypeC": ["mass":[1.27], "width":[0.15], "const":[1.0], "theta":[1.57]
+    }}
 }}
 
-Ignore `Sbc`, `range`, `fixed`, `error`, and `Amplitude` sections.
-    """
+"""
         return prompt
     
     def generate_load_data_prompt(self) -> str:
@@ -253,6 +271,46 @@ Ignore `Sbc`, `range`, `fixed`, `error`, and `Amplitude` sections.
         prompt = f"""You are given a Python code template:
 function template:
 {data_loading_section}
+```python
+def load_data():
+    data = {{}}
+    
+    # Load real data
+    data['data_{{var}}'] = onp.load("data/real_data/{{var}}.npy")
+
+    # Load MC data
+    data['mc_{{var}}'] = onp.load("data/mc_truth/{{var}}.npy")
+
+    # MC truth data (for constraints)
+    data['truth_{{var}}'] = data['mc_{{var}}'][:, 0:150000]
+    
+    # Weight data
+    try:
+        data['wt_data_kk'] = onp.load("data/weight/weight_kk.npy")
+    except FileNotFoundError:
+        data['wt_data_kk'] = onp.ones_like(data['data_phi_kk'])
+    
+    return data
+
+def normalize_data(data):
+    # 计算归一化因子
+    regular_{{var}} = 1. / onp.average(
+        onp.sqrt(onp.sum(onp.asarray(data['mc_{{var}}'])**2, axis=2)), axis=1
+    )
+    
+    # 应用归一化
+    data['data_{{var}}'] = onp.einsum("jkl,j->jkl", data['data_{{var}}'], regular_{{var}})
+    data['mc_{{var}}'] = onp.einsum("jkl,j->jkl", data['mc_{{var}}'], regular_{{var}})
+    data['truth_{{var}}'] = onp.einsum("jkl,j->jkl", data['truth_{{var}}'], regular_{{var}})
+    
+    return data
+
+def prepare_data_for_jax(data, device=None):
+    jax_data = {{}}
+    for key, value in data.items():
+        jax_data[key] = device_put(np.array(value), device=device)
+    return jax_data
+```
 
 Task:
 Replace {{var}} with each variable name from the given list.
@@ -269,7 +327,6 @@ amp = {amp}
     
     def generate_calculate_function_prompt(self, ana_key, ana_value, resonance_name) -> str:
         """生成 calculate_{A_propagator_type}_{B_propagator_type} 函数的代码生成提示词"""
-        function_template = self.sections.get('RESONANCE_CALCULATIONS', '')
         all_resonances_info = self.config.get('resonances', {})
         resonance_info = json.dumps(all_resonances_info.get(resonance_name, {}), indent=4)
         prompt = f"""
@@ -345,7 +402,16 @@ amp = {amp}
 ---
 
 function template:
-{function_template}
+```python
+def calculate_{{calculation_name}}({{A_propagator_param}}, {{B_propagator_param}}, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
+    A_propagator = {{A_propagator_type}}({{A_propagator_param}})
+    B_propagator = {{B_propagator_type}}({{B_propagator_param}})
+    propagator_combined = dplex.deinsum("j, ij->ij", B_propagator, A_propagator)
+    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
+    return result
+```
 
 Resonance_Info:
 {resonance_info}
@@ -356,29 +422,73 @@ Resonance_len_in_Group: {len(ana_value) > 1}
 
         return prompt
 
-    def generate_likelihood_function_prompt(self) -> str:
+    def generate_extract_parameters_prompt(self, parameter_info) -> str:
         """生成 data_likelihood_{channel} 函数的代码生成提示词"""
-        likelihood_function_template = self.sections.get('likelihood_functions', '')
-        all_resonances_info = self.config.get('resonances', {})
-        resonance_info = json.dumps(all_resonances_info, indent=4)
+        parameter_info_str = json.dumps(parameter_info, indent=4)
         prompt = f"""
 ### 1. 任务目标
 你的任务是：
-1. 根据给定的函数定义（calculate_xxx 和 component_xxx）以及共振态信息，生成完整的 data_likelihood_{{channel}} 方法代码。
-2. 在生成 data_likelihood 时：
-   - 调用 calculate_xxx 计算振幅。
-   - 调用 component_xxx 计算振幅（用于分数约束）。
-   - 计算分数约束（frac_xxx）。
-   - 计算总似然值（likelihood）。
----
+1. 根据输入的parameter信息生成args_list列表，填入参数的初始值。
+2. 生成 extract_parameters 函数
+    - 按照参数列表的顺序，从 args 中提取对应的值，并赋给相应的变量名。
+    - 如果参数是二维数组，则在提取时保持二维数组的形状。
 
-### 2. data_likelihood 模板
-{likelihood_function_template}
+### 2. extract_parameters 模板
+args_list = onp.array([按顺序填入全部参数值])
+
+def extract_parameters(args):
+    return {{
+        "var_name_A": np.array(args[参数的序号]),
+        "var_name_B": np.array(args[参数的序号]),
+        # 如果是二维数组参数
+        "var_name_C": np.array(args[起始序号:结束序号]).reshape(行数, 列数),
+    }}
+参数列表:
+{parameter_info_str}
+
+### 3. 强制检测环节（生成前必须执行）
+在生成代码前，必须逐项检查：
+1. **代码缩进**
+   - 缩进与原模板完全一致。
+2. **输出内容**
+   - 仅输出最终 Python 函数代码字符串，不包含解释、注释或额外文本。
+3. **规则违规处理**
+   - 如果检测发现不符合规则，必须重新生成，直到符合为止。
+"""
+        return prompt
+    
+    def prepare_likelihood_info(self):
+        pass 
+
+    
+    def generate_likelihood_function_prompt(self, parameter_info, resonance_calculation, extract_parameters) -> str:
+        """生成 data_likelihood_{channel} 函数的代码生成提示词"""
+        parameter_info_str = json.dumps(parameter_info["parameter_lists"], indent=4)
+        likelihood_functions_section = self.sections.get('likelihood_functions', '')
+        prompt = f"""
+### 1. 任务目标
+你的任务：
+1. 输入信息中包含共振态信息和函数定义，以及一个要生成的函数的例子。首先看一下这些内容，并找到内在联系。
+2. 理解函数例子中的代码的组织、联系、以及与函数定义中的函数之间的关系。
+3. 理解共振态信息的层次，内容以及如何用这些共振态信息来生成一个由这些共振态组成的函数。
+4. 将你理解的内容精炼的整理出来。
+5. 根据你整理出来的内容和思路并根据输入信息生成函数，生成包括 data 与 mc 的两个似然函数，要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
+
+### 2. 输入信息
+共振态类型信息：
+{parameter_info_str}
+
+函数定义(calculate_xxx和component_xxx):
+{resonance_calculation}
+{extract_parameters}
+
+函数例子：
+{likelihood_functions_section}
 
 """
         return prompt
 
-    def generate_partial_function(self, prompt: str, cache_file: str ) -> str:
+    def generate_partial_function(self, prompt: str, cache_file: str, check: bool) -> str:
         load_data_cache = self._load_cache(cache_file)
         prompt_hash = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
         if prompt_hash in load_data_cache:
@@ -398,6 +508,7 @@ Resonance_len_in_Group: {len(ana_value) > 1}
                 raise EasyTransError("LLM响应验证失败")
             
             generated_code = self.llm_client.extract_content(response)
+            print(generated_code)
             
             if not generated_code:
                 raise EasyTransError("LLM返回空的代码内容")
@@ -409,13 +520,13 @@ Please strictly check the following code for compliance with all the rules menti
 Code:
 {generated_code}
 """
-
-            check_out = self.llm_client.responses(
-                input_text=check_prompt,
-                model=self.model_check
-            )
-            check_result = self.llm_client.extract_content(check_out)
-            print(f"🔍 代码检查结果: {check_result}")
+            if check:
+                check_out = self.llm_client.responses(
+                    input_text=check_prompt,
+                    model=self.model_check
+                )
+                generated_code = self.llm_client.extract_content(check_out)
+                print(f"🔍 代码检查结果: {generated_code}")
 
             load_data_cache[prompt_hash] = {
                 "prompt": prompt,
@@ -423,12 +534,11 @@ Code:
             }
             self._save_cache(load_data_cache, cache_file)
 
-            return check_result
+            return generated_code
             
         except Exception as e:
             print(f"❌ LLM代码生成失败: {e}")
             raise
-
     
     def generate_complete_resonance_functions(self) -> Dict[str, str]:
         """生成指定共振态的完整函数集合"""
@@ -438,7 +548,7 @@ Code:
 
         try:
             ana_prompt = self.analysis_toml_config_prompt()
-            ana_result = self.generate_partial_function(ana_prompt, "agent/cache/ana_cache.json")
+            ana_result = self.generate_partial_function(ana_prompt, "agent/cache/ana_cache.json", False)
             ana_result = json.loads(ana_result)
             print("ana_reuslt:",ana_result)
         except Exception as e:
@@ -447,26 +557,33 @@ Code:
 
         try:
             data_load_prompt = self.generate_load_data_prompt()
-            functions['data_load'] = self.generate_partial_function(data_load_prompt, "agent/cache/load_data_cache.json")
+            functions['data_load'] = self.generate_partial_function(data_load_prompt, "agent/cache/load_data_cache.json", False)
         except Exception as e:
             print(f"⚠️  data load 函数生成失败: {e}")
         time.sleep(1) 
 
         try:
             resonance_calculation_functions = []
-            for ana_key, ana_value in ana_result.items():
+            for ana_key, ana_value in ana_result["propagator_classification"].items():
                 ana_value = sorted(ana_value)
                 resonance_name = ana_value[0]
                 resonance_calculation_prompt = self.generate_calculate_function_prompt(ana_key,ana_value,resonance_name)
-                resonance_calculation_functions.append(self.generate_partial_function(resonance_calculation_prompt, f"agent/cache/resonance_calculation_{resonance_name}.json"))
+                resonance_calculation_functions.append(self.generate_partial_function(resonance_calculation_prompt, f"agent/cache/resonance_calculation_{resonance_name}.json", True))
             functions['resonance_calculation'] = "\n\n".join(resonance_calculation_functions)
         except Exception as e:
             print(f"⚠️  calculation 函数生成失败: {e}")
         time.sleep(1)
 
         try:
-            likelihood_function_prompt = self.generate_likelihood_function_prompt()
-            functions['likelihood_function'] = self.generate_partial_function(likelihood_function_prompt, "agent/cache/likelihood_function_cache.json")
+            extract_parameters_prompt = self.generate_extract_parameters_prompt(ana_result["parameter_lists"])
+            functions['extract_parameters'] = self.generate_partial_function(extract_parameters_prompt, "agent/cache/extract_parameters_cache.json", False)
+        except Exception as e:
+            print(f"⚠️  extract_parameters 函数生成失败: {e}")
+        time.sleep(1)
+
+        try:
+            likelihood_function_prompt = self.generate_likelihood_function_prompt(ana_result,resonance_calculation_functions,functions["extract_parameters"])
+            functions['likelihood_function'] = self.generate_partial_function(likelihood_function_prompt, "agent/cache/analysis_likelihood_cache.json", False)
         except Exception as e:
             print(f"⚠️  likelihood 函数生成失败: {e}")
         time.sleep(1) 
@@ -488,6 +605,7 @@ Code:
         path_config_section = self.sections.get('PATH_CONFIG', '')
         logging_config_section = self.sections.get('LOGGING_CONFIG', '')
         physics_functions_section = self.sections.get('PHYSICS_FUNCTIONS', '')
+        combined_likelihood_section = self.sections.get('combined_likelihood_function', '')
         
         # 组合头部
         header = f"""# Auto-generated by LLMResonanceGenerator
@@ -508,10 +626,13 @@ Code:
             full_code += f"\n\n"
             full_code += functions['resonance_calculation']
 
+        if 'extract_parameters' in functions:
+            full_code += f"\n\n"
+            full_code += functions['extract_parameters']
+
         if 'likelihood_function' in functions:
             full_code += f"\n\n"
-            full_code += functions['likelihood_function']
-        
+            full_code += functions['likelihood_function'] + "\n\n" + combined_likelihood_section
         
         # 写入文件
         with open(output_path, 'w', encoding='utf-8') as f:
