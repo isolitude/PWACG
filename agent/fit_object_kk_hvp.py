@@ -304,32 +304,7 @@ def extract_parameters(args):
 # ==============================================================================
 # 似然计算类（最优化版本，带HVP支持）
 # ==============================================================================
-# 实际数据
-data_phi_kk = jax_data['data_phi_kk']
-data_f_kk = jax_data['data_f_kk']
-data_phif0_kk = jax_data['data_phif0_kk']
-data_phif2_kk = jax_data['data_phif2_kk']
 
-# MC数据
-mc_phi_kk = jax_data['mc_phi_kk']
-mc_f_kk = jax_data['mc_f_kk']
-mc_phif0_kk = jax_data['mc_phif0_kk']
-mc_phif2_kk = jax_data['mc_phif2_kk']
-
-# Truth数据（用于约束）
-truth_phi_kk = jax_data['truth_phi_kk']
-truth_f_kk = jax_data['truth_f_kk']
-truth_phif0_kk = jax_data['truth_phif0_kk']
-truth_phif2_kk = jax_data['truth_phif2_kk']
-
-# 权重数据
-wt_data_kk = jax_data['wt_data_kk']
-
-# 数据大小（用于似然函数计算）
-data_size = len(data_phi_kk)
-
-# 约束强度（可调节）
-constraint_strength = 0.0
 
 def data_likelihood_kk(args):
     """数据似然函数（类成员版本，最高效）"""
@@ -489,10 +464,34 @@ if __name__  == "__main__":
     logger.info("加载数据...")
     data = load_data()
     data = normalize_data(data)
+
     jax_data = prepare_data_for_jax(data)
-    
-    # 创建HVP优化版似然计算器
-    logger.info("创建HVP优化版似然计算器...")
+    # 实际数据
+    data_phi_kk = jax_data['data_phi_kk']
+    data_f_kk = jax_data['data_f_kk']
+    data_phif0_kk = jax_data['data_phif0_kk']
+    data_phif2_kk = jax_data['data_phif2_kk']
+
+    # MC数据
+    mc_phi_kk = jax_data['mc_phi_kk']
+    mc_f_kk = jax_data['mc_f_kk']
+    mc_phif0_kk = jax_data['mc_phif0_kk']
+    mc_phif2_kk = jax_data['mc_phif2_kk']
+
+    # Truth数据（用于约束）
+    truth_phi_kk = jax_data['truth_phi_kk']
+    truth_f_kk = jax_data['truth_f_kk']
+    truth_phif0_kk = jax_data['truth_phif0_kk']
+    truth_phif2_kk = jax_data['truth_phif2_kk']
+
+    # 权重数据
+    wt_data_kk = jax_data['wt_data_kk']
+
+    # 数据大小（用于似然函数计算）
+    data_size = len(data_phi_kk)
+
+    # 约束强度（可调节）
+    constraint_strength = 0.0
     
     # 初始参数
     args_list = onp.array([

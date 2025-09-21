@@ -243,6 +243,8 @@ toml 配置：
     - 合并的方式为共振态之间相同的参数合并为一个参数，value值组合为列表。
     - 共振态Amplitude参数合并为二维list，例如[[a_resonance_const1, a_resonance_const2], [b_resonance_const1, b_resonance_const2]]。
 
+4. 读取toml配置中哪些变量的fix属性是True，这些变量在程序中的计算是不被优化的。并根据任务3得到的结果，在fixed_parameter表格中填入parameter_lists中fix的变量的名字和该变量的位置。
+
 输出格式：
 {{
     "propagator_classification": {{
@@ -256,6 +258,9 @@ toml 配置：
     "parameter_lists": {{
     "AMP_TypeA_TypeB": ["mass":[0.980, 1.27], "width":[0.05, 0.15], "const":[0.5, 1.0], "theta":[0.0, 1.57]],
     "AMP_TypeA_TypeC": ["mass":[1.27], "width":[0.15], "const":[1.0], "theta":[1.57]
+    }},
+    "fixed_parameter":{{
+    "AMP_TypeA_TypeB": {{"mass":[0,1], "const":[1], "theta":[1]}}
     }}
 }}
 
@@ -422,44 +427,56 @@ Resonance_len_in_Group: {len(ana_value) > 1}
 
         return prompt
 
-    def generate_extract_parameters_prompt(self, parameter_info) -> str:
+    def generate_extract_prompt(self, parameter_info) -> str:
         """生成 data_likelihood_{channel} 函数的代码生成提示词"""
-        parameter_info_str = json.dumps(parameter_info, indent=4)
+        args_list = json.dumps(parameter_info["parameter_lists"], indent=4)
+        fixed_list = json.dumps(parameter_info["fixed_parameter"], indent=4)
+        prepare_data_parameters = self.sections.get('prepare_data_parameters','')
         prompt = f"""
 ### 1. 任务目标
 你的任务是：
-1. 根据输入的parameter信息生成args_list列表，填入参数的初始值。
-2. 生成 extract_parameters 函数
-    - 按照参数列表的顺序，从 args 中提取对应的值，并赋给相应的变量名。
+1. 根据输入部分的参数列表信息生成函数模板中args_list列表，整理得到根据输入信息的args_list列表。
+2. 理解函数模板中extract_parameters的内容，思考如何将args_list中的数据做为输入参数输入到extract_parameters 函数中。
+    - 按照args_list的参数顺序，从args中提取对应的值，并赋给相应的变量名。
     - 如果参数是二维数组，则在提取时保持二维数组的形状。
+3. 思考如何根据输入的固定参数列表修改上面刚刚生成的列表和函数,要求：
+    - 固定位置的参数不出现在args_list列表中。
+    - 固定位置的参数在extract_parameters中将值直接写在函数中。
+4. 根据上面整理出的思路，一次生成修改后的arges_list、extract_parameteres，要求返回的内容只包含 python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。
 
-### 2. extract_parameters 模板
-args_list = onp.array([按顺序填入全部参数值])
+### 2. 函数模板：
+{prepare_data_parameters}
 
-def extract_parameters(args):
-    return {{
-        "var_name_A": np.array(args[参数的序号]),
-        "var_name_B": np.array(args[参数的序号]),
-        # 如果是二维数组参数
-        "var_name_C": np.array(args[起始序号:结束序号]).reshape(行数, 列数),
-    }}
+### 2. 输入部分
+
 参数列表:
-{parameter_info_str}
+{args_list}
 
-### 3. 强制检测环节（生成前必须执行）
-在生成代码前，必须逐项检查：
-1. **代码缩进**
-   - 缩进与原模板完全一致。
-2. **输出内容**
-   - 仅输出最终 Python 函数代码字符串，不包含解释、注释或额外文本。
-3. **规则违规处理**
-   - 如果检测发现不符合规则，必须重新生成，直到符合为止。
+固定参数列表：
+{fixed_list}
 """
         return prompt
     
-    def prepare_likelihood_info(self):
-        pass 
+    def generate_run_load_data_prompt(self,load_data) -> str:
+        """生成 data_likelihood_{channel} 函数的代码生成提示词"""
+        load_data_section = self.sections.get('load_data_section','')
+        prompt = f"""
+### 1. 任务目标
+你的任务是：
+1. 充分理解输入部分的load data函数和函数模板中对 load data函数的调用。
+2. 根据你对load data函数调用的理解，为输入部分的load data函数生成一个函数调用。
+3. 要求返回的内容只包含 python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。
 
+### 2. 函数模板：
+{load_data_section}
+
+### 2. 输入部分
+
+load data 函数:
+{load_data}
+
+"""
+        return prompt
     
     def generate_likelihood_function_prompt(self, parameter_info, resonance_calculation, extract_parameters) -> str:
         """生成 data_likelihood_{channel} 函数的代码生成提示词"""
@@ -487,6 +504,26 @@ def extract_parameters(args):
 
 """
         return prompt
+
+    def generate_main_prompt(self,full_code) -> str:
+        main_section = self.sections.get('main_section', '')
+        prompt = f"""
+### 1. 任务目标
+你的任务是：
+1. 理解输入信息中函数的信息，整理出这些函数之间的关联，以及输入了哪些类型的共振态。
+2. 理解函数模板中主程序入口例子中各个函数的调用和输入信息中的主程序入口函数调用之间的关系。
+3. 根据你的理解，生成主程序入口部分脚本。
+4. 要求返回的内容只包含python代码的字符串，不包含解释、代码框、注释或额外文本，缩进和函数组织方式与函数例子一致。
+
+### 2. 函数模板：
+{main_section}
+
+### 2. 输入部分
+{full_code}
+
+        """
+        return prompt
+        
 
     def generate_partial_function(self, prompt: str, cache_file: str, check: bool) -> str:
         load_data_cache = self._load_cache(cache_file)
@@ -575,8 +612,10 @@ Code:
         time.sleep(1)
 
         try:
-            extract_parameters_prompt = self.generate_extract_parameters_prompt(ana_result["parameter_lists"])
+            extract_parameters_prompt = self.generate_extract_prompt(ana_result)
             functions['extract_parameters'] = self.generate_partial_function(extract_parameters_prompt, "agent/cache/extract_parameters_cache.json", False)
+            run_load_data_prompt = self.generate_run_load_data_prompt(functions['data_load'])
+            functions['run_load_data'] = self.generate_partial_function(run_load_data_prompt, "agent/cache/run_load_data_cache.json", False)
         except Exception as e:
             print(f"⚠️  extract_parameters 函数生成失败: {e}")
         time.sleep(1)
@@ -599,7 +638,6 @@ Code:
         
         # 创建输出目录
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
 
         common_utilities_section = self.sections.get('COMMON_UTILITIES', '')
         path_config_section = self.sections.get('PATH_CONFIG', '')
@@ -633,6 +671,35 @@ Code:
         if 'likelihood_function' in functions:
             full_code += f"\n\n"
             full_code += functions['likelihood_function'] + "\n\n" + combined_likelihood_section
+
+        if 'run_load_data' in functions:
+            full_code += f"\n\n"
+            full_code += functions['run_load_data'] + "\n\n" 
+        
+        try:
+            main_prompt = self.generate_main_prompt(full_code)
+            functions["main_section"] = self.generate_partial_function(main_prompt,"agent/cache/main_section_cache.json", True)
+        except Exception as e:
+            print(f"main section error: {e}")
+        time.sleep(1)
+
+        if 'main_section' in functions:
+            full_code += f"\n\n"
+            full_code += functions['main_section'] + "\n\n" 
+
+        full_code = self.generate_partial_function(
+            f"""
+###1. 任务
+1. 你的任务是从头到尾检查输入的脚本的语法、逻辑、调用等问题。
+2. 在代码上修改你找到的问题，并返回修改后的结果，
+3. 要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
+
+###2. 需要被检查的脚本
+{full_code}
+            """,
+            "agent/cache/full_code_cache.json",
+            False
+        )
         
         # 写入文件
         with open(output_path, 'w', encoding='utf-8') as f:
