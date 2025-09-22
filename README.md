@@ -3,6 +3,16 @@
 
 PWACG (Partial Wave Analysis Code Generator) is a code generation tool specifically designed for partial wave analysis. It uses advanced code generation techniques to produce highly efficient analysis code with fast computation speeds and optimized memory usage. This tool supports the use of the Newton conjugate gradient method for optimization in large datasets, significantly improving the efficiency of searching for global optimal points in partial wave analysis fitting.
 
+## LLM-Powered Code Generation
+
+PWACG features an advanced LLM (Large Language Model) based code generator in the `agent` directory that automates the creation of complex physics computation code:
+
+- **Resonance Configuration**: Define resonance states in a structured TOML configuration file (`resonances_config.toml`)
+- **Automatic Code Generation**: The `llm_code_generator.py` script uses AI to generate optimized Python code for partial wave analysis
+- **Template-Based Generation**: Utilizes predefined templates to ensure consistent, high-quality code output
+- **Caching Mechanism**: Implements efficient caching to avoid redundant code generation
+- **Physics-Aware Generation**: Creates specialized functions for resonance calculations, data loading, and likelihood computation
+
 ## Installation and Environment Setup
 
 ### 1. Get the Installation Package
