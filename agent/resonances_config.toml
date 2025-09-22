@@ -1,5 +1,29 @@
 # resonances_config.toml
 
+# phif0(980) resonance configuration
+[resonances.phif0_980.propagators.A_propagator]
+propagator_type = "BW"  
+mass = { value = 1.02, fixed = true}
+width = { value = 0.004, fixed = true}
+Sbc = "phi_kk" 
+
+[resonances.phif0_980.propagators.B_propagator]
+propagator_type = "flatte980" 
+mass = { value = 0.9794812115574156, range = [0.98, 10.0], fixed = false, error = 0.0029114167854559173 }
+g_kk = { value = 0.10678616326827592, fixed = false, error = 0.010260657247901088 }
+rg = { value = 8.570187550432664, fixed = false, error = 1.348489540060868 }
+Sbc = "f_kk"
+
+[resonances.phif0_980.Amplitude]
+AMP = "phif0_kk"
+
+const1 = { value = 0.1, fixed = true, error = 0.0 }
+const2 = { value = 0.1065182971468388, fixed = false, error = 0.003833456119689838 }
+
+theta1 = { value = 0.1, fixed = true, error = 0.0 }
+theta2 = { value = 0.03807025376236671, fixed = false, error = 0.0032382807585900437 }
+
+
 # phif0(1710) resonance configuration
 [resonances.phif0_1710.propagators.A_propagator]
 propagator_type = "BW"

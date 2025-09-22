@@ -334,95 +334,39 @@ amp = {amp}
         """生成 calculate_{A_propagator_type}_{B_propagator_type} 函数的代码生成提示词"""
         all_resonances_info = self.config.get('resonances', {})
         resonance_info = json.dumps(all_resonances_info.get(resonance_name, {}), indent=4)
+        calculate_function_template = self.sections.get('calculate_functions','')
+        physics_propagator = self.sections.get('PHYSICS_FUNCTIONS','')
         prompt = f"""
-### 1. 任务目标
+### 任务目标
 你的任务是：
-- 仅替换给定 Python 代码模板中的 placeholder 标记（如 {{calculation_name}}、{{A_propagator_param}} 等）。
-- 保留模板中固定部分的结构、缩进、函数名、逻辑不变。
-- 输出最终的完整 Python 函数代码字符串，不添加任何额外解释或注释。
+- 理解 function template 中 calculate 和 component 函数的例子，理解其中的矩阵计算的过程。
+- 理解 propagator function 中的函数与 function template 的关系，理解计算的内容。
+- 从 Resonance_Info 中提取可以用于生成 calculate 和 component 的共振态信息。
+- 结合上面的理解，生成该共振态的 calculate 和 component 函数。
+- 保留模板中固定部分的结构、缩进、函数名、逻辑不变。输出最终的完整 Python 函数代码字符串，不添加任何额外解释或注释。
 
----
+### 注意事项
+1. propagator 中函数调用规则
+    - 判断其所有参数是否为固定值。
+    - 如果是 → 必须使用 direct call。
+    - 如果 Resonance_len_in_Group 为 False → 必须使用 direct call。
+    - 否则 → 使用 vmap。
+2. 注意如果使用 direct 的方式计算，则输出的数组是一维的；如果使用 vmap 的方式计算，则输出的数组是二维的。因此要对应调整后面的计算：
+    - 理解这个计算 propagator_combined = dplex_deinsum("j, ij->ij", A_propagator, B_propagator) 中指标的意义，根据上一步计算的 A_propagator 和 B_propagator 对应调整。
 
-### 2. 模板结构说明
-- 固定部分：
-  - 模板中的函数定义、缩进、固定逻辑、固定变量名。
-  - 除 placeholder 外的所有代码必须原样保留。
-
-- 可变部分（需要替换的 placeholder）：
-  - {{calculation_name}}
-  - {{A_propagator_param}} / {{B_propagator_param}}
-  - {{A_propagator_type}} / {{B_propagator_type}}
-
----
-
-### 3. 参数替换规则
-1. calculation_name
-   - 使用输入中提供的 ana_key 值。
-
-2. A_propagator_param / B_propagator_param
-   - 按模板中参数顺序，从 resonance 配置的 propagator 参数中提取变量名（不是值）。
-
-3. A_propagator_type / B_propagator_type
-   - 使用 resonance 配置中的 propagator_type。
-
-4. 向量化方法选择规则（必须先判断再生成）
-   - **条件 1**：如果该 propagator 的所有参数值都是固定值 → 使用直接函数调用：
-     ```python
-     A_propagator = BW({{A_propagator_param}})
-     ```
-   - **条件 2**：如果 Resonance_len_in_Group 为 False → 也使用直接函数调用（即使参数不是固定值）。
-   - **条件 3**：其他情况 → 使用 vmap 方式：
-     ```python
-     A_propagator = np.moveaxis(
-         vmap(partial({{A_propagator_type}}, Sbc={{A_propagator_param.Sbc}}))({{A_propagator_param}}), 1, 0
-     )
-     ```
-     - {{A_propagator_param.Sbc}} 表示 Sbc 的变量名（如 phi_kk），不是值。
-     - {{A_propagator_param}} 表示除 Sbc 外的参数变量名集合（如 A_mass, A_width）。
-
-5. component_{{calculation_name}} 构造
-   - 构造并生成 component_{{calculation_name}} 函数。
-   - 与 calculate_{{calculation_name}} 相同，唯一不同是最后一步的 contraction 改为 `"ljk,lj->ljk"`。
-
----
-
-### 4. 强制检测环节（生成前必须执行）
-在生成代码前，必须逐项检查：
-1. **A_propagator 检查**
-   - 判断其所有参数是否为固定值。
-   - 如果是 → 必须使用 direct call。
-   - 如果 Resonance_len_in_Group 为 False → 必须使用 direct call。
-   - 否则 → 使用 vmap。
-2. **B_propagator 检查**
-   - 同 A_propagator 的规则。
-3. **参数格式**
-   - 所有替换的参数必须符合规则（变量名而非值，顺序正确）。
-4. **代码缩进**
-   - 缩进与原模板完全一致。
-5. **输出内容**
-   - 仅输出最终 Python 函数代码字符串，不包含解释、注释或额外文本。
-6. **规则违规处理**
-   - 如果检测发现不符合规则，必须重新生成，直到符合为止。
-
----
+### 函数模板
+propagator function
+{physics_propagator}
 
 function template:
-```python
-def calculate_{{calculation_name}}({{A_propagator_param}}, {{B_propagator_param}}, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
-    A_propagator = {{A_propagator_type}}({{A_propagator_param}})
-    B_propagator = {{B_propagator_type}}({{B_propagator_param}})
-    propagator_combined = dplex.deinsum("j, ij->ij", B_propagator, A_propagator)
-    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
-    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
-    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
-    return result
-```
+{calculate_function_template}
+
+### 输入信息部分
+calculation name: {ana_key}
+Resonance_len_in_Group: {len(ana_value) > 1}
 
 Resonance_Info:
 {resonance_info}
-
-calculation_name: {ana_key}
-Resonance_len_in_Group: {len(ana_value) > 1}
 """
 
         return prompt
@@ -448,7 +392,6 @@ Resonance_len_in_Group: {len(ana_value) > 1}
 {prepare_data_parameters}
 
 ### 2. 输入部分
-
 参数列表:
 {args_list}
 
@@ -642,6 +585,7 @@ Code:
         common_utilities_section = self.sections.get('COMMON_UTILITIES', '')
         path_config_section = self.sections.get('PATH_CONFIG', '')
         logging_config_section = self.sections.get('LOGGING_CONFIG', '')
+        dplex_functions_section = self.sections.get('DPLEX_FUNCTIONS', '')
         physics_functions_section = self.sections.get('PHYSICS_FUNCTIONS', '')
         combined_likelihood_section = self.sections.get('combined_likelihood_function', '')
         
@@ -651,6 +595,7 @@ Code:
 {common_utilities_section}
 {path_config_section}
 {logging_config_section}
+{dplex_functions_section}
 {physics_functions_section}
 """
         # 组合所有函数
@@ -678,7 +623,7 @@ Code:
         
         try:
             main_prompt = self.generate_main_prompt(full_code)
-            functions["main_section"] = self.generate_partial_function(main_prompt,"agent/cache/main_section_cache.json", True)
+            functions["main_section"] = self.generate_partial_function(main_prompt,"agent/cache/main_section_cache.json",False)
         except Exception as e:
             print(f"main section error: {e}")
         time.sleep(1)

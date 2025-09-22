@@ -42,8 +42,6 @@ foo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(foo_path)
 sys.path.append(foo_path)
 
-from dlib import dplex
-
 # ==============================================================================
 # SECTION: LOGGING_CONFIG
 # Logging configuration
@@ -56,20 +54,53 @@ def setup_logging():
     return logging.getLogger("fit")
 
 # ==============================================================================
+# SECTION: DPLEX_FUNCTIONS
+# ==============================================================================
+# 复数张量与复数张量的爱因斯坦求和
+def dplex_deinsum(subscript, aa, bb):
+    real = np.einsum(subscript, aa[0], bb[0]) - np.einsum(subscript, aa[1], bb[1])
+    imag = np.einsum(subscript, aa[0], bb[1]) + np.einsum(subscript, aa[1], bb[0])
+    return np.stack([real, imag], axis=0)
+
+# 复数张量与实数张量的爱因斯坦求和
+def dplex_deinsum_ord(subscript, aa, bb):
+    real = np.einsum(subscript, aa, bb[0])
+    imag = np.einsum(subscript, aa, bb[1])
+    return np.stack([real, imag], axis=0)
+
+# 复数张量的模平方
+def dplex_dabs(aa):
+    return aa[0]**2 + aa[1]**2 # 因为是纵向叠加所以aa[0]是纵向上第一个数组
+
+# 复数张量转换成dplex数据格式
+def dplex_dtomine(aa):
+    return np.stack([np.real(aa), np.imag(aa)], axis=0) # 组合而成的数组 axis=0 的第一个数组为实部，第二个数组为虚部
+
+# 用于将计算得到的张量的实部与虚部组合成dplex的数据格式
+def dplex_dconstruct(aa, bb):
+    return np.stack([aa, bb], axis=0) # 纵向叠加数组 第一维为实部，第二维为虚部
+
+# 实数张量与虚数张量的除法
+def dplex_ddivide(a, bb):
+    real = a * bb[0] / dplex_dabs(bb)
+    imag = -a * bb[1] / dplex_dabs(bb)
+    return np.stack([real, imag], axis=0)
+
+# ==============================================================================
 # SECTION: PHYSICS_FUNCTIONS
 # Physics calculation functions (resonance shape functions)
 # ==============================================================================
 def BW(m_,w_,Sbc):
     l = (Sbc.shape)[0]
-    temp = dplex.dconstruct(m_*m_ - Sbc,  -m_*w_*np.ones(l))
-    return dplex.ddivide(1.0, temp)
+    temp = dplex_dconstruct(m_*m_ - Sbc,  -m_*w_*np.ones(l))
+    return dplex_ddivide(1.0, temp)
 
 def BW_relativity(m_,w_,Sbc):
     gamma=np.sqrt(m_*m_*(m_*m_+w_*w_))
     k = np.sqrt(2*np.sqrt(2)*m_*np.abs(w_)*gamma/np.pi/np.sqrt(m_*m_+gamma))
     l = (Sbc.shape)[0]
-    temp = dplex.dconstruct(m_*m_ - Sbc,  -m_*w_*np.ones(l))
-    return dplex.ddivide(k, temp)
+    temp = dplex_dconstruct(m_*m_ - Sbc,  -m_*w_*np.ones(l))
+    return dplex_ddivide(k, temp)
 
 def flatte980(m_,g_pipi,rg,Sbc):
     g_kk = rg * g_pipi
@@ -77,8 +108,8 @@ def flatte980(m_,g_pipi,rg,Sbc):
     m_pi = 0.13957061
     rho_kk = np.sqrt(np.abs(1 - 4*m_k*m_k / Sbc))
     rho_pipi = np.sqrt(np.abs(1 - 4*m_pi*m_pi / Sbc))
-    tmp_A = dplex.dconstruct(m_**2 - Sbc, -1*(g_pipi*rho_pipi + g_kk*rho_kk))
-    return dplex.ddivide(1.0, tmp_A)
+    tmp_A = dplex_dconstruct(m_**2 - Sbc, -1*(g_pipi*rho_pipi + g_kk*rho_kk))
+    return dplex_ddivide(1.0, tmp_A)
 
 def flatte1270(m_,w_,Sbc):
     rm = m_ * m_
@@ -89,8 +120,8 @@ def flatte1270(m_,w_,Sbc):
     q2 = 0.25 * Sbc - 0.0194792
     b2 = q2 * (q2 + 0.1825) + 0.033306
     g1 = g11270 * np.power(q2,2.5) / b2
-    tmp = dplex.dconstruct(Sbc - rm, g1)
-    return dplex.ddivide(gr, tmp)
+    tmp = dplex_dconstruct(Sbc - rm, g1)
+    return dplex_ddivide(gr, tmp)
 
 def flatte500(m_,b1,b2,b3,b4,b5,Sbc):
     m2 = m_*m_
@@ -102,8 +133,8 @@ def flatte500(m_,b1,b2,b3,b4,b5,Sbc):
     pip2 = np.sqrt(np.abs(1.0 - 0.3116765584/m2))/(1.0+np.exp(9.8-3.5*m2)) # ?
     cgam1 = m_*(b1+b2*Sbc)*(Sbc-mpi2d2)/(m2-mpi2d2)*np.exp(-(Sbc-m2)/b3)*cro1/cro2
     cgam2 = m_*b4*pip1/pip2
-    tmp = dplex.dconstruct(m2-Sbc, -b5*(cgam1+cgam2))
-    return dplex.ddivide(1.0, tmp)
+    tmp = dplex_dconstruct(m2-Sbc, -b5*(cgam1+cgam2))
+    return dplex_ddivide(1.0, tmp)
 
 
 #==============================================================================
@@ -114,10 +145,10 @@ def calculate_BW_BW(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_pa
     B_propagator = np.moveaxis(
         vmap(partial(BW, Sbc=f_kk))(B_mass, B_width), 1, 0
     )
-    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
-    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
-    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
-    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
+    propagator_combined = dplex_deinsum("j, ij->ij", A_propagator, B_propagator)
+    const_ph = dplex_dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex_deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex_deinsum("ljk,lj->jk", result, propagator_combined)
     return result
 
 def component_BW_BW(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
@@ -125,28 +156,10 @@ def component_BW_BW(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_pa
     B_propagator = np.moveaxis(
         vmap(partial(BW, Sbc=f_kk))(B_mass, B_width), 1, 0
     )
-    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
-    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
-    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
-    result = dplex.deinsum("ljk,lj->ljk", result, propagator_combined)
-    return result
-
-def calculate_BW_flatte1270(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
-    A_propagator = BW(A_mass, A_width, phi_kk)
-    B_propagator = flatte1270(B_mass, B_width, f_kk)
-    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
-    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
-    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
-    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
-    return result
-
-def component_BW_flatte1270(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
-    A_propagator = BW(A_mass, A_width, phi_kk)
-    B_propagator = flatte1270(B_mass, B_width, f_kk)
-    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
-    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
-    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
-    result = dplex.deinsum("ljk,lj->ljk", result, propagator_combined)
+    propagator_combined = dplex_deinsum("j, ij->ij", A_propagator, B_propagator)
+    const_ph = dplex_dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex_deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex_deinsum("ljk,lj->ljk", result, propagator_combined)
     return result
 
 #==============================================================================
@@ -184,20 +197,20 @@ def data_likelihood_kk(args):
         params['phif2_kk_BW_flatte1270_mass'], params['phif2_kk_BW_flatte1270_width'], truth_f_kk,
         truth_phif2_kk, params['phif2_kk_BW_flatte1270_const'], params['phif2_kk_BW_flatte1270_theta']
     )
-    sum_frac = np.sum(dplex.dabs(
+    sum_frac = np.sum(dplex_dabs(
         np.einsum("mljk->mjk", component_data_phif0_kk_BW_BW) +
         np.einsum("mljk->mjk", component_data_phif2_kk_BW_BW) +
         np.einsum("mljk->mjk", component_data_phif2_kk_BW_flatte1270)
     ))
-    frac_f0_BW = np.sum(np.einsum("ljk->l", dplex.dabs(component_data_phif0_kk_BW_BW)) / sum_frac)
-    frac_f2_BW = np.sum(np.einsum("ljk->l", dplex.dabs(component_data_phif2_kk_BW_BW)) / sum_frac)
-    frac_f2_flatte = np.sum(np.einsum("ljk->l", dplex.dabs(component_data_phif2_kk_BW_flatte1270)) / sum_frac)
+    frac_f0_BW = np.sum(np.einsum("ljk->l", dplex_dabs(component_data_phif0_kk_BW_BW)) / sum_frac)
+    frac_f2_BW = np.sum(np.einsum("ljk->l", dplex_dabs(component_data_phif2_kk_BW_BW)) / sum_frac)
+    frac_f2_flatte = np.sum(np.einsum("ljk->l", dplex_dabs(component_data_phif2_kk_BW_flatte1270)) / sum_frac)
     total_frac = frac_f0_BW + frac_f2_BW + frac_f2_flatte
     step_function = np.power(total_frac - 1.03, 2.0) * constraint_strength
     total_amplitude = data_phif0_kk_BW_BW
     total_amplitude = total_amplitude + data_phif2_kk_BW_BW
     total_amplitude = total_amplitude + data_phif2_kk_BW_flatte1270
-    likelihood = -np.sum(np.log(np.sum(dplex.dabs(total_amplitude), axis=1))) + 10000.0 * step_function
+    likelihood = -np.sum(np.log(np.sum(dplex_dabs(total_amplitude), axis=1))) + 10000.0 * step_function
     return likelihood
 
 def mc_likelihood_kk(args):
@@ -222,7 +235,7 @@ def mc_likelihood_kk(args):
         params['phif2_kk_BW_BW_mass'], params['phif2_kk_BW_BW_width'], mc_f_kk,
         mc_phif2_kk, params['phif2_kk_BW_BW_amplitude_consts'], params['phif2_kk_BW_BW_amplitude_thetas']
     )
-    return np.mean(np.sum(dplex.dabs(total_mc), axis=1))
+    return np.mean(np.sum(dplex_dabs(total_mc), axis=1))
 
 
 #==============================================================================
