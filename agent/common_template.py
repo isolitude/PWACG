@@ -106,6 +106,48 @@ def flatte500(m_,b1,b2,b3,b4,b5,Sbc):
     return dplex.ddivide(1.0, tmp)
 
 
+#==============================================================================
+# SECTION: calculate_functions
+#==============================================================================
+def calculate_BW_BW(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
+    A_propagator = BW(A_mass, A_width, phi_kk)
+    B_propagator = np.moveaxis(
+        vmap(partial(BW, Sbc=f_kk))(B_mass, B_width), 1, 0
+    )
+    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
+    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
+    return result
+
+def component_BW_BW(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
+    A_propagator = BW(A_mass, A_width, phi_kk)
+    B_propagator = np.moveaxis(
+        vmap(partial(BW, Sbc=f_kk))(B_mass, B_width), 1, 0
+    )
+    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
+    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex.deinsum("ljk,lj->ljk", result, propagator_combined)
+    return result
+
+def calculate_BW_flatte1270(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
+    A_propagator = BW(A_mass, A_width, phi_kk)
+    B_propagator = flatte1270(B_mass, B_width, f_kk)
+    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
+    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex.deinsum("ljk,lj->jk", result, propagator_combined)
+    return result
+
+def component_BW_flatte1270(A_mass, A_width, phi_kk, B_mass, B_width, f_kk, Amplitude_param_AMP, Amplitude_param_const, Amplitude_param_theta):
+    A_propagator = BW(A_mass, A_width, phi_kk)
+    B_propagator = flatte1270(B_mass, B_width, f_kk)
+    propagator_combined = dplex.deinsum("j, ij->ij", A_propagator, B_propagator)
+    const_ph = dplex.dconstruct(Amplitude_param_const, Amplitude_param_theta)
+    result = dplex.deinsum_ord("ijk,li->ljk", Amplitude_param_AMP, const_ph)
+    result = dplex.deinsum("ljk,lj->ljk", result, propagator_combined)
+    return result
 
 #==============================================================================
 # SECTION: likelihood_functions

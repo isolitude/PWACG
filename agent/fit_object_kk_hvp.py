@@ -428,7 +428,7 @@ def mc_likelihood_kk(args):
     # 返回总MC积分
     return np.mean(np.sum(dplex.dabs(total_mc),axis=1))
 
-def combined_likelihood(self, args):
+def combined_likelihood(args):
     """组合似然函数: data_likelihood + datasize * log(mc_likelihood)"""
     # 计算data似然
     data_lh = data_likelihood_kk(args)
@@ -441,11 +441,11 @@ def combined_likelihood(self, args):
     
     return combined_lh
 
-def hvp_combined_likelihood(self, args, vector):
+def hvp_combined_likelihood(args, vector):
     """计算Hessian-vector product for combined likelihood"""
     return jvp(grad(combined_likelihood), [args], [vector])[1]
 
-def set_constraint_strength(self, strength):
+def set_constraint_strength(strength):
     """设置约束强度"""
     constraint_strength = strength
 
