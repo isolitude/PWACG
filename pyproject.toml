@@ -22,6 +22,8 @@ dependencies = [
     "matplotlib",
     "tabulate",
     "root",
+    "requests",
+    "toml",
 ]
 
 [project.scripts]

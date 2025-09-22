@@ -75,7 +75,22 @@ pip install -U \
     matplotlib \
     pandas \
     tabulate \
-    numpy
+    numpy \
+    requests \
+    toml
+```
+
+#### Option 3: LLM Code Generator Dependencies
+If you plan to use the LLM code generator in the `agent` directory, you'll need these additional packages:
+
+```bash
+pip install requests toml
+```
+
+You'll also need to set the `EASYTRANS_API_KEY` environment variable for API access:
+
+```bash
+export EASYTRANS_API_KEY="your_api_key_here"
 ```
 
 ### 6. Install as a Package (Optional)
