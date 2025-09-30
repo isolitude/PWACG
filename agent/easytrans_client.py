@@ -150,7 +150,6 @@ class EasyTransClient:
     def messages(
         self,
         messages: List[Dict[str, str]],
-        # model: str = "claude-opus-4-20250514",
         model: str = "claude-opus-4-1-20250805",
         max_tokens: int = 10000,
         stream: bool = False,

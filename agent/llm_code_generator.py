@@ -274,9 +274,8 @@ toml 配置：
 
         # 组装英文提示词
         prompt = f"""You are given a Python code template:
-function template:
+## function template:
 {data_loading_section}
-```python
 def load_data():
     data = {{}}
     
@@ -315,16 +314,15 @@ def prepare_data_for_jax(data, device=None):
     for key, value in data.items():
         jax_data[key] = device_put(np.array(value), device=device)
     return jax_data
-```
 
-Task:
+## Task:
 Replace {{var}} with each variable name from the given list.
 For variables Sbc, the truth slicing is [0:150000], variables amp the truth slicing is [:, 0:150000].
 For normalization, use "regular_{{var}}" as the normalization factor name and only amp need normalization.
 Keep the rest of the code structure exactly the same.
 Output the final Python code string only, without extra explanations.
 
-Variable list:
+## Variable list:
 sbc = {sbc}
 amp = {amp}
 """
@@ -343,7 +341,7 @@ amp = {amp}
 - 理解 propagator function 中的函数与 function template 的关系，理解计算的内容。
 - 从 Resonance_Info 中提取可以用于生成 calculate 和 component 的共振态信息。
 - 结合上面的理解，生成该共振态的 calculate 和 component 函数。
-- 保留模板中固定部分的结构、缩进、函数名、逻辑不变。输出最终的完整 Python 函数代码字符串，不添加任何额外解释或注释。
+- 保留模板中固定部分的结构、缩进、函数名、逻辑不变。输出结果中只包含 Python 代码字符串，不添加任何额外解释或注释,并且输出时不要使用 Markdown 代码块。
 
 ### 注意事项
 1. propagator 中函数调用规则
@@ -386,7 +384,7 @@ Resonance_Info:
 3. 思考如何根据输入的固定参数列表修改上面刚刚生成的列表和函数,要求：
     - 固定位置的参数不出现在args_list列表中。
     - 固定位置的参数在extract_parameters中将值直接写在函数中。
-4. 根据上面整理出的思路，一次生成修改后的arges_list、extract_parameteres，要求返回的内容只包含 python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。
+4. 根据上面整理出的思路，一次生成修改后的arges_list、extract_parameteres，要求返回的内容只包含 python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。并且输出时不要使用 Markdown 代码块。并且输出时不要使用 Markdown 代码块。
 
 ### 2. 函数模板：
 {prepare_data_parameters}
@@ -632,19 +630,19 @@ Code:
             full_code += f"\n\n"
             full_code += functions['main_section'] + "\n\n" 
 
-        full_code = self.generate_partial_function(
-            f"""
-###1. 任务
-1. 你的任务是从头到尾检查输入的脚本的语法、逻辑、调用等问题。
-2. 在代码上修改你找到的问题，并返回修改后的结果，
-3. 要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
+#         full_code = self.generate_partial_function(
+#             f"""
+# ###1. 任务
+# 1. 首先仔细阅读需要被检查的脚本部分。
+# 2. 在代码上修改你找到的问题，并返回修改后的结果，
+# 3. 要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
 
-###2. 需要被检查的脚本
-{full_code}
-            """,
-            "agent/cache/full_code_cache.json",
-            False
-        )
+# ###2. 需要被检查的脚本
+# {full_code}
+#             """,
+#             "agent/cache/full_code_cache.json",
+#             False
+#         )
         
         # 写入文件
         with open(output_path, 'w', encoding='utf-8') as f:
