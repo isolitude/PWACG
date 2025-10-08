@@ -10,23 +10,15 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import toml
 import hashlib
+import argparse
 
 foo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(foo_path)
 sys.path.append(foo_path)
 
 from agent.easytrans_client import EasyTransClient, EasyTransError
+from agent.code_compressor import CodeCompressor, compress_code
 
-
-# Section mapping for programmatic access
-TEMPLATE_SECTIONS = {
-    'COMMON_UTILITIES': 'Common utility functions and imports',
-    'PATH_CONFIG': 'Path configuration and setup', 
-    'LOGGING_CONFIG': 'Logging configuration functions',
-    'PHYSICS_FUNCTIONS': 'Physics calculation functions (resonance shapes)',
-    'DATA_LOADING': 'Data loading function templates',
-    'RESONANCE_CALCULATIONS': 'Composite resonance calculation templates'
-}
 
 def parse_template_sections(file_path=__file__):
     """
@@ -243,7 +235,7 @@ toml 配置：
     - 合并的方式为共振态之间相同的参数合并为一个参数，value值组合为列表。
     - 共振态Amplitude参数合并为二维list，例如[[a_resonance_const1, a_resonance_const2], [b_resonance_const1, b_resonance_const2]]。
 
-4. 读取toml配置中哪些变量的fix属性是True，这些变量在程序中的计算是不被优化的。并根据任务3得到的结果，在fixed_parameter表格中填入parameter_lists中fix的变量的名字和该变量的位置。
+4. 认真读取toml配置中的fix属性，fix属性是True的变量在程序中的计算是不被优化的。将找到的变量的变量名填入到fixed_parameter表格中。
 
 输出格式：
 {{
@@ -260,7 +252,7 @@ toml 配置：
     "AMP_TypeA_TypeC": ["mass":[1.27], "width":[0.15], "const":[1.0], "theta":[1.57]
     }},
     "fixed_parameter":{{
-    "AMP_TypeA_TypeB": {{"mass":[0,1], "const":[1], "theta":[1]}}
+    "AMP_TypeA_TypeB": ["mass", "const1", "theta1"]
     }}
 }}
 
@@ -351,6 +343,7 @@ amp = {amp}
     - 否则 → 使用 vmap。
 2. 注意如果使用 direct 的方式计算，则输出的数组是一维的；如果使用 vmap 的方式计算，则输出的数组是二维的。因此要对应调整后面的计算：
     - 理解这个计算 propagator_combined = dplex_deinsum("j, ij->ij", A_propagator, B_propagator) 中指标的意义，根据上一步计算的 A_propagator 和 B_propagator 对应调整。
+3. 注意如果该参数即使是固定值也需要传参，例如 mass, width, const, theta。
 
 ### 函数模板
 propagator function
@@ -378,13 +371,12 @@ Resonance_Info:
 ### 1. 任务目标
 你的任务是：
 1. 根据输入部分的参数列表信息生成函数模板中args_list列表，整理得到根据输入信息的args_list列表。
-2. 理解函数模板中extract_parameters的内容，思考如何将args_list中的数据做为输入参数输入到extract_parameters 函数中。
+2. 理解函数模板中extract_parameters的内容，思考如何将args_list中的数据做为输入参数输入到extract_parameters函数中。
     - 按照args_list的参数顺序，从args中提取对应的值，并赋给相应的变量名。
     - 如果参数是二维数组，则在提取时保持二维数组的形状。
-3. 思考如何根据输入的固定参数列表修改上面刚刚生成的列表和函数,要求：
-    - 固定位置的参数不出现在args_list列表中。
-    - 固定位置的参数在extract_parameters中将值直接写在函数中。
-4. 根据上面整理出的思路，一次生成修改后的arges_list、extract_parameteres，要求返回的内容只包含 python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。并且输出时不要使用 Markdown 代码块。并且输出时不要使用 Markdown 代码块。
+3. 根据输入部分中的固定参数列表的信息，修改args_list列表，将该参数从args_list中移除。
+4. 根据输入部分中的固定参数列表的信息，修改extract_parameters函数，将固定参数改为参数列表中对应的值，并调整args的编号。
+5. 根据上面整理出的思路，生成修改后的args_list、extract_parameters，要求返回的内容只包含python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。并且输出时不要使用 Markdown 代码块。
 
 ### 2. 函数模板：
 {prepare_data_parameters}
@@ -426,11 +418,12 @@ load data 函数:
         prompt = f"""
 ### 1. 任务目标
 你的任务：
-1. 输入信息中包含共振态信息和函数定义，以及一个要生成的函数的例子。首先看一下这些内容，并找到内在联系。
-2. 理解函数例子中的代码的组织、联系、以及与函数定义中的函数之间的关系。
-3. 理解共振态信息的层次，内容以及如何用这些共振态信息来生成一个由这些共振态组成的函数。
-4. 将你理解的内容精炼的整理出来。
-5. 根据你整理出来的内容和思路并根据输入信息生成函数，生成包括 data 与 mc 的两个似然函数，要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
+1. 输入信息中包含共振态信息和函数定义，以及一个目标函数的例子。仔细理解这些内容，并理清它们之间的关系，记下你理解的内容。
+2. 理解函数定义中的calculate_xxx和component_xxx函数的内容，理解这些函数的输入、输出、以及它们之间的关系。
+3. 理解extract_parameters函数的内容，理解这个函数的输入、输出、以及它们之间的关系。
+4. 函数例子中的函数就是将extract_parameters和calculate_xxx、component_xxx结合起来，生成了一个完整的似然函数。理解这个函数例子中各个函数的调用关系。
+5. 将你理解的内容精炼的整理出来。
+6. 根据你整理出来的内容和思路并根据输入信息生成函数，生成包括 data 与 mc 的两个似然函数，要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
 
 ### 2. 输入信息
 共振态类型信息：
@@ -446,7 +439,7 @@ load data 函数:
 """
         return prompt
 
-    def generate_main_prompt(self,full_code) -> str:
+    def generate_main_prompt(self, full_code) -> str:
         main_section = self.sections.get('main_section', '')
         prompt = f"""
 ### 1. 任务目标
@@ -465,7 +458,6 @@ load data 函数:
         """
         return prompt
         
-
     def generate_partial_function(self, prompt: str, cache_file: str, check: bool) -> str:
         load_data_cache = self._load_cache(cache_file)
         prompt_hash = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
@@ -570,16 +562,10 @@ Code:
         
         print(f"✅ 函数集合生成完成！")
         return functions
-    
-    def save_generated_functions(self, functions: Dict[str, str],
-                               output_path: str = None) -> str:
-        """保存生成的函数到文件"""
-        if output_path is None:
-            output_path = f"agent/generated_script.py"
-        
-        # 创建输出目录
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+    def construct_code(self, functions: Dict[str, str]) -> str:
+        """根据函数集合构造完整代码"""
+        
         common_utilities_section = self.sections.get('COMMON_UTILITIES', '')
         path_config_section = self.sections.get('PATH_CONFIG', '')
         logging_config_section = self.sections.get('LOGGING_CONFIG', '')
@@ -629,6 +615,36 @@ Code:
         if 'main_section' in functions:
             full_code += f"\n\n"
             full_code += functions['main_section'] + "\n\n" 
+        
+        return full_code
+    
+    def chatcheck(self,full_code: str) -> bool:
+        """检查生成的代码是否符合语法"""
+#         pre_prompt = f"""
+# # 任务:
+# 1. 阅读完整代码,理解代码的内容。
+# 3. 检查代码是否包含必要的导入语句，以及是否有未定义的变量或函数。
+# 4. 检查代码是否有语法错误，以及是否有逻辑错误。
+# 5. 先将任务拆分成几步，然后将你的每一步的思考过程写出来。
+# 6. 输出你的理解和检查结果。
+
+# # 完整代码:
+# {full_code}
+#         """
+#         pre_result = self.generate_partial_function(pre_prompt,"agent/cache/chatcheck_cache.json",False)
+#         fix_prompt = f"""
+# # 任务:
+# 1. 根据检查结果，修复代码中的错误。
+# 2. 输出修复后的代码。
+
+# # 检查结果:
+# {pre_result}
+
+# # 完整代码：
+# {full_code}
+#         """
+#         fixed_result = self.generate_partial_function(fix_prompt,"agent/cache/fix_cache.json",False)
+#         print(fixed_result)
 
 #         full_code = self.generate_partial_function(
 #             f"""
@@ -640,9 +656,19 @@ Code:
 # ###2. 需要被检查的脚本
 # {full_code}
 #             """,
-#             "agent/cache/full_code_cache.json",
+#             "agent/cache/full_code_check.json",
 #             False
 #         )
+
+        return full_code
+
+    def save_code(self, full_code: str, output_path: str = None) -> str:
+        """保存生成的函数到文件"""
+        if output_path is None:
+            output_path = f"run/generated_script.py"
+        
+        # 创建输出目录
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         # 写入文件
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -657,9 +683,17 @@ def main():
     print("🤖 LLM驱动的PWA共振态函数生成器")
     print("=" * 50)
     
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="LLM驱动的PWA共振态函数生成器")
+    parser.add_argument("--model", default="gpt-5-mini-2025-08-07", 
+                      help="使用的LLM模型")
+    parser.add_argument("--model-check", default="gpt-5-2025-08-07", 
+                      help="用于代码检查的LLM模型")
+    args = parser.parse_args()
+    
     try:
         # 创建生成器
-        generator = LLMResonanceGenerator(model="gpt-5-mini-2025-08-07", model_check="gpt-5-2025-08-07")
+        generator = LLMResonanceGenerator(model=args.model, model_check=args.model_check)
         
         # 打印配置摘要
         generator.print_config_summary()
@@ -669,7 +703,11 @@ def main():
         print(f"📊 全部共振态: {resonance_names}")
         
         functions = generator.generate_complete_resonance_functions()
-        generator.save_generated_functions(functions)
+        full_code = generator.construct_code(functions)
+        compressed_full_code = compress_code(full_code, level="medium")
+        checked_full_code = generator.chatcheck(full_code)
+        generator.save_code(compressed_full_code,output_path="run/generated_script_compressed.py")
+        generator.save_code(checked_full_code,output_path="run/generated_script.py")
         
     except Exception as e:
         print(f"❌ 主程序执行失败: {e}")
