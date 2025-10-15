@@ -620,46 +620,6 @@ Code:
     
     def chatcheck(self,full_code: str) -> bool:
         """检查生成的代码是否符合语法"""
-#         pre_prompt = f"""
-# # 任务:
-# 1. 阅读完整代码,理解代码的内容。
-# 3. 检查代码是否包含必要的导入语句，以及是否有未定义的变量或函数。
-# 4. 检查代码是否有语法错误，以及是否有逻辑错误。
-# 5. 先将任务拆分成几步，然后将你的每一步的思考过程写出来。
-# 6. 输出你的理解和检查结果。
-
-# # 完整代码:
-# {full_code}
-#         """
-#         pre_result = self.generate_partial_function(pre_prompt,"agent/cache/chatcheck_cache.json",False)
-#         fix_prompt = f"""
-# # 任务:
-# 1. 根据检查结果，修复代码中的错误。
-# 2. 输出修复后的代码。
-
-# # 检查结果:
-# {pre_result}
-
-# # 完整代码：
-# {full_code}
-#         """
-#         fixed_result = self.generate_partial_function(fix_prompt,"agent/cache/fix_cache.json",False)
-#         print(fixed_result)
-
-#         full_code = self.generate_partial_function(
-#             f"""
-# ###1. 任务
-# 1. 首先仔细阅读需要被检查的脚本部分。
-# 2. 在代码上修改你找到的问题，并返回修改后的结果，
-# 3. 要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
-
-# ###2. 需要被检查的脚本
-# {full_code}
-#             """,
-#             "agent/cache/full_code_check.json",
-#             False
-#         )
-
         return full_code
 
     def save_code(self, full_code: str, output_path: str = None) -> str:
