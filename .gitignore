@@ -16,12 +16,12 @@ generated_script.py
 output/
 result_repo/
 rendered_scripts/
-run/
 raw_data/
 # data/
 json-repo/
 .ipynb_checkpoints/
 ROOT/
+config/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

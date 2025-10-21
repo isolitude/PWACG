@@ -8,6 +8,7 @@ import time
 import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+from jax._src.random import resolve_prng_impl
 import toml
 import hashlib
 import argparse
@@ -377,6 +378,7 @@ Resonance_Info:
 3. 根据输入部分中的固定参数列表的信息，修改args_list列表，将该参数从args_list中移除。
 4. 根据输入部分中的固定参数列表的信息，修改extract_parameters函数，将固定参数改为参数列表中对应的值，并调整args的编号。
 5. 根据上面整理出的思路，生成修改后的args_list、extract_parameters，要求返回的内容只包含python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。并且输出时不要使用 Markdown 代码块。
+6. 参数列表是从完整配置文件中提取，args_list是从参数列表中提取的，写一个函数将args_list中的参数重新填回配置文件的数据结构中的函数，输入为args_list，输出为完整配置文件的数据结构,因此需要在函数中定义相同的配置文件数据结构，要求返回的内容只包含python代码字符串，不包含解释、注释或额外文本，缩进和函数组织方式与函数例子一致。并且输出时不要使用 Markdown 代码块。
 
 ### 2. 函数模板：
 {prepare_data_parameters}
@@ -387,6 +389,9 @@ Resonance_Info:
 
 固定参数列表：
 {fixed_list}
+
+完整配置文件内容：
+{self.config}
 """
         return prompt
     
@@ -419,10 +424,10 @@ load data 函数:
 ### 1. 任务目标
 你的任务：
 1. 输入信息中包含共振态信息和函数定义，以及一个目标函数的例子。仔细理解这些内容，并理清它们之间的关系，记下你理解的内容。
-2. 理解函数定义中的calculate_xxx和component_xxx函数的内容，理解这些函数的输入、输出、以及它们之间的关系。
+2. 理解函数定义中的calculate_xxx和component_xxx函数的内容，理解这些函数的输入、输出、以及它们之间的关系，注意这些函数是成对出现的，每一对是一个共振态的计算函数。
 3. 理解extract_parameters函数的内容，理解这个函数的输入、输出、以及它们之间的关系。
 4. 函数例子中的函数就是将extract_parameters和calculate_xxx、component_xxx结合起来，生成了一个完整的似然函数。理解这个函数例子中各个函数的调用关系。
-5. 将你理解的内容精炼的整理出来。
+5. 将你理解的内容精炼的整理出来,要求 data 和 mc 包含全部输入的共振态类型。
 6. 根据你整理出来的内容和思路并根据输入信息生成函数，生成包括 data 与 mc 的两个似然函数，要求返回的内容只包含 python 代码字符串，不包含解释、注释或额外文本，缩进与函数例子一致。
 
 ### 2. 输入信息
