@@ -128,6 +128,25 @@
                 {%- endfor -%}
                 {{func.amp}}):
 
+        {% if func.prop_name == "BW_BWb" %}
+        bw1 = self.BW_BW_f0_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        bw2 = self.BW_BW_f2_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+
+        amp_caled_1 = {{func.amp}}[[0, 2], :, :]  # SS and DS
+        amp_caled_2 = {{func.amp}}[[1, 3], :, :]  # DS and DD
+
+        const_ph = dplex.dconstruct({{func.const}}, {{func.theta}})
+        const_ph1 = const_ph[:, :, [0, 2]]
+        const_ph2 = const_ph[:, :, [1, 3]]
+
+        amp_caled_wphase1 = dplex.deinsum_ord("ijk,li->ljk", amp_caled_1, const_ph1)
+        amp_caled_wphase2 = dplex.deinsum_ord("ijk,li->ljk", amp_caled_2, const_ph2)
+
+        phif1 = dplex.deinsum("ljk,lj->jk", amp_caled_wphase1, bw1)
+        phif2 = dplex.deinsum("ljk,lj->jk", amp_caled_wphase2, bw2)
+
+        phif = phif1 + phif2
+        {% else %}
         # ph = np.moveaxis(self.phase({{func.theta}}), 1, 0)
         # print("phif",phif.shape)
         # print("phase",ph.shape)
@@ -141,17 +160,19 @@
         phif = dplex.deinsum_ord("ijk,li->ljk", {{func.amp}}, const_ph)
         # phif = dplex.deinsum("ijk,li->ljk", phif, const_ph)
         phif = dplex.deinsum("ljk,lj->jk", phif, bw)
-        return phif 
+        {% endif %}
+        return phif
 
+{%- if func.prop_name != "BW_BWb" %}
     def {{func.prop_name}}(self, {{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}}):
         {%- if info.merge == 'phi' %}
         a = self.{{func.prop.prop_phi.name}}({{func["prop"]["prop_phi"]["paras"]|join(',')}})
-
+        # a = self.BW_phi({{func["prop"]["prop_phi"]["paras"]|join(',')}})
         {%- if func.Sbc.f == 'f_kk' or func.Sbc.f == 'f_pipi' %}
         b = np.moveaxis(vmap(partial(self.{{func.prop.prop_f.name}},Sbc={{func.Sbc.f}}))({{func["prop"]["prop_f"]["_paras"]|join(',')}}),1,0)
         {%- endif %}
 
-        {%- if func.Sbc.f == 'b123_pipi' or func.Sbc.f == 'b123_kk'%}
+        {%- if func.Sbc.b1 == 'b124_pipi' or func.Sbc.b1 == 'b124_kk'%}
         b = np.moveaxis(vmap(partial(self.{{func.prop.prop_f.name}},Sbc={{func.Sbc.b1}}))({{func["prop"]["prop_f"]["_paras"]|join(',')}}),1,0)
         {%- endif %}
 
@@ -173,6 +194,7 @@
         b = np.moveaxis(vmap(partial(self.{{func.prop.prop_f.name}},Sbc={{func.Sbc.f}}))({{func["prop"]["prop_f"]["_paras"]|join(',')}}),1,0)
         return dplex.deinsum("ij, ij->ij",a,b)
         {%- endif %}
+{%- endif %}
 {%- endmacro %}
 
 {%- macro lasso_calculate_core(func) %}
@@ -185,6 +207,25 @@
                 {%- endfor -%}
                 {{func.amp}}):
 
+        {% if func.prop_name == "BW_BWb" %}
+        bw1 = self.BW_BW_f0_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        bw2 = self.BW_BW_f2_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+
+        amp_caled_1 = {{func.amp}}[[0, 2], :, :]  # SS and DS
+        amp_caled_2 = {{func.amp}}[[1, 3], :, :]  # DS and DD
+
+        const_ph = dplex.dconstruct({{func.const}}, {{func.theta}})
+        const_ph1 = const_ph[:, :, [0, 2]]
+        const_ph2 = const_ph[:, :, [1, 3]]
+
+        amp_caled_wphase1 = dplex.deinsum_ord("ijk,li->ljk", amp_caled_1, const_ph1)
+        amp_caled_wphase2 = dplex.deinsum_ord("ijk,li->ljk", amp_caled_2, const_ph2)
+
+        phif1 = dplex.deinsum("ljk,lj->ljk", amp_caled_wphase1, bw1)
+        phif2 = dplex.deinsum("ljk,lj->ljk", amp_caled_wphase2, bw2)
+
+        phif = phif1 + phif2
+        {% else %}
         # ph = np.moveaxis(self.phase({{func.theta}}), 1, 0)
         # print("phif",phif.shape)
         # print("phase",ph.shape)
@@ -200,5 +241,6 @@
         phif = dplex.deinsum("ljk,lj->ljk", phif, bw)
         # lasso_phif = np.einsum("ljk->l",dplex.dabs(phif))
         # return lasso_phif
+        {% endif %}
         return phif
 {%- endmacro %}

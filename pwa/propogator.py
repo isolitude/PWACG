@@ -151,6 +151,35 @@
         tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
         return dplex.ddivide(1.0, tmp)
 
+    def BW_f0_kk(self,m_,w_,Sbc):# paramtered width l=0
+        S_b = 0.24371698
+        S_c = 0.24371698
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = q/q0
+
+        gam = w_*t*m_/Sbc # barrier_factor == 1
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+
+    def BW_f2_kk(self,m_,w_,Sbc):# paramtered width l=2
+        S_b = 0.24371698
+        S_c = 0.24371698
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = (q/q0)**5#not sure who is more accuracy
+        bf = (9+3*q02+q02*q02)/(9+3*q2+q2*q2)
+
+        gam = w_*t*m_/Sbc*bf
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+
     def BW_rho770(self,m_,w_,Sbc):# GS_lineshape
         S_b = 0.0194797849
         S_c = 0.0194797849
@@ -180,5 +209,35 @@
         a = 1.0 + d*w_/m_
         b = dplex.dconstruct(m_*m_ - Sbc + f, -m_*gam)
         return dplex.ddivide(a, b)
+
+    def BW_f0_b1(self,m_,w_,Sbc):# paramtered width l=0 b1 state SS and DS
+        S_b = 1.3433505409 #b1=m_phi+m_pi
+        S_c = 0.0194797849
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = q/q0
+        gam = w_*t*m_/Sbc # barrier_factor == 1
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+
+    def BW_f2_b1(self,m_,w_,Sbc):# paramtered width l=0 b1 state SS and DS
+        S_b = 1.3433505409 #b1=m_phi+m_pi
+        S_c = 0.0194797849
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = (q/q0)**5#not sure who is more accuracy
+        bf = (9+3*q02+q02*q02)/(9+3*q2+q2*q2)
+        gam = w_*t*m_/Sbc*bf
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+# 可以发现，传播子在结构上相似，对于同一个轨道角动量的情况差距仅出现在Sb和Sc上，
+# 因此最终对于相同l的结果可以统一为一个函数，只需要传入不同的Sb和Sc即可
+# 最终的函数应该可以构造为 BW_f0(self,m_,w_,Sbc,Sb,Sc)
 
 {% endmacro %}
