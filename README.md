@@ -1,197 +1,129 @@
-# PWACG - Partial Wave Analysis Code Generator
-[Readme 中文版](documentation/README_CN.md)
+# LLMPWA - LLM-Powered Partial Wave Analysis Code Generator
 
-PWACG (Partial Wave Analysis Code Generator) is a code generation tool specifically designed for partial wave analysis. It uses advanced code generation techniques to produce highly efficient analysis code with fast computation speeds and optimized memory usage. This tool supports the use of the Newton conjugate gradient method for optimization in large datasets, significantly improving the efficiency of searching for global optimal points in partial wave analysis fitting.
+LLMPWA is an intelligent code generation tool that leverages Large Language Models (LLM) to automate the creation of optimized Python code for partial wave analysis:
 
-## LLM-Powered Code Generation
+- **Resonance Configuration**: Define resonance states in a structured TOML configuration file
+- **Automatic Code Generation**: Uses LLM to intelligently generate optimized Python code
+- **Smart Caching**: Efficiently caches generated code to avoid redundant API calls
+- **Template-Based Output**: Produces consistent, production-ready code
 
-PWACG features an advanced LLM (Large Language Model) based code generator in the `agent` directory that automates the creation of complex physics computation code:
+## Installation
 
-- **Resonance Configuration**: Define resonance states in a structured TOML configuration file (`resonances_config.toml`)
-- **Automatic Code Generation**: The `llm_code_generator.py` script uses AI to generate optimized Python code for partial wave analysis
-- **Template-Based Generation**: Utilizes predefined templates to ensure consistent, high-quality code output
-- **Caching Mechanism**: Implements efficient caching to avoid redundant code generation
-- **Physics-Aware Generation**: Creates specialized functions for resonance calculations, data loading, and likelihood computation
+### Prerequisites
+- Python 3.8 or higher
+- API Key for LLM service (EasyTrans)
 
-## Installation and Environment Setup
+### Install Dependencies
 
-### 1. Get the Installation Package
-First, clone the PWACG repository from GitHub to your local machine:
-
-```bash
-git clone https://github.com/caihao/PWACG.git
-```
-
-This will create a folder named `PWACG` in the current directory containing all the necessary files.
-
-### 2. Install Miniconda
-Please download and install Miniconda based on your operating system from the [Miniconda Official Website](https://www.anaconda.com/docs/getting-started/miniconda/main).
-
-### 3. Install JAX
-JAX has been tested on NVIDIA 30 series and the latest GPUs, requiring an already installed CUDA environment and NVIDIA drivers. Please verify that GPU support is working after installing JAX.
-
-Install JAX according to the CUDA version:
-
-```bash
-# For CUDA 12.x
-pip install -U "jax[cuda12]"
-```
-
-**Verify GPU support for JAX:**
-
-```bash
-python -c "import jax; print(jax.devices())"
-```
-
-**JAX official installation guide:** [JAX Installation Guide](https://github.com/jax-ml/jax?tab=readme-ov-file#installation)
-
-### 4. Install ROOT
-Install the ROOT data analysis framework using conda:
-
-```bash
-conda config --set channel_priority strict
-conda install -c conda-forge root
-```
-
-### 5. Install Python Dependencies
-
-You have two options to install the Python dependencies:
-
-#### Option 1: Using requirements.txt (Recommended)
-Install all Python dependencies at once using the provided requirements.txt:
+Install the required Python packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-#### Option 2: Manual Installation
-Alternatively, you can install the dependencies individually:
+Or manually install the dependencies:
 
 ```bash
 pip install -U \
-    jinja2 \
-    iminuit \
-    pynvml \
-    matplotlib \
-    pandas \
-    tabulate \
-    numpy \
     requests \
-    toml
+    toml \
+    jinja2
 ```
 
-#### Option 3: LLM Code Generator Dependencies
-If you plan to use the LLM code generator in the `agent` directory, you'll need these additional packages:
+### Configure API Access
 
-```bash
-pip install requests toml
-```
-
-You'll also need to set the `EASYTRANS_API_KEY` environment variable for API access:
+Set the `EASYTRANS_API_KEY` environment variable for LLM access:
 
 ```bash
 export EASYTRANS_API_KEY="your_api_key_here"
 ```
 
-### 6. Install as a Package (Optional)
-If you want to install PWACG as a Python package, you can install it in development mode:
+You can also pass it as a command-line argument when running the code generator.
 
-```bash
-# Install in development mode
-pip install -e .
+## Usage
+
+### Basic Usage
+
+The LLMPWA code generator automates the creation of partial wave analysis code based on resonance configurations.
+
+#### 1. Configure Resonances
+
+Edit the resonance configuration file `agent/resonances_config.toml` to define your resonance states:
+
+```toml
+[resonances.phif0_980.propagators.A_propagator]
+propagator_type = "BW"
+mass = { value = 1.02, fixed = true}
+width = { value = 0.004, fixed = true}
+
+[resonances.phif0_980.Amplitude]
+AMP = "phif0_kk"
+const1 = { value = 0.1, fixed = true }
 ```
 
-This will make the `pwacg` command available in your environment and allow you to import PWACG modules from any directory.
+#### 2. Generate Code
 
-## Quick Start
-
-Before starting to use PWACG, make sure you have all the necessary data and configuration files prepared, and that you have switched to the `main` branch in Git.
-
-### 1. Download Demo Data
-
-Download the `data.zip` data file from the GitHub Releases:
+Run the LLM code generator:
 
 ```bash
-wget https://github.com/caihao/PWACG/releases/download/v1.0.0/data.zip
+cd agent
+python llm_code_generator.py --config resonances_config.toml --api_key your_api_key
 ```
 
-Extract the data:
+Or with environment variable:
 
 ```bash
-unzip data.zip
+export EASYTRANS_API_KEY="your_api_key"
+python llm_code_generator.py --config resonances_config.toml
 ```
 
-The extracted directory will look like this:
+#### 3. Output
 
-```bash
-$ ls data
-draw_data  draw_mc  mc_int  mc_truth  real_data  weight
+The generator will create optimized Python code for:
+- Resonance propagators
+- Amplitude calculations
+- Data loading functions
+- Likelihood computations
+- Parameter fitting routines
+
+### Advanced Options
+
+#### Cache Management
+
+The generator includes intelligent caching to avoid redundant API calls. Generated code is cached in the `agent/cache/` directory.
+
+#### Code Compression
+
+Generated code is automatically optimized and compressed for better performance using the built-in code compressor.
+
+### File Structure
+
+```
+agent/
+├── llm_code_generator.py    # Main code generation script
+├── resonances_config.toml   # Resonance configuration file
+├── easytrans_client.py      # LLM API client
+├── code_compressor.py       # Code optimization utilities
+├── common_template.py       # Code templates
+└── cache/                   # Generated code cache
 ```
 
-The extracted `data` directory should be located in the root directory of the project. Make sure the program can correctly read and use the data in the `data` directory.
+## Key Features
 
-### 2. Generate Analysis Scripts
-
-Use the following command to generate the required analysis scripts:
-
-```bash
-python create_all_scripts.py
-```
-
-This command will create a series of scripts based on the provided data and configuration, which are needed for the partial wave analysis process.
-
-### 3. Run the Fitting Demo
-
-After generating the scripts, you can run the fitting process:
-
-```bash
-# Generate fitting scripts
-$ python create_all_scripts.py
-
-# Run the fitting
-$ python run/fit_kk.py
-```
-
-This will run the `fit_kk.py` script to begin fitting your data using partial wave analysis. The process may take some time depending on the data size and configuration.
-
-### 4. Plot the Results
-
-After the fitting is complete, you can generate and view the fitting results in graphical form:
-
-```bash
-# Generate plotting scripts for the fitting results
-$ python create_all_scripts.py
-
-# Generate the fitting result weights
-$ python run/draw_wt_kk.py
-
-# Plot the results
-$ python run/dplot_run_kk.py
-```
-
-The plotted results will be saved in the `output/pictures/partial_mods_pictures/` directory.
-
-## Project Highlights
-
-- **Fast Computation**: The tool utilizes code generation techniques to optimize the execution paths of algorithms, significantly improving computation speed.
-- **Efficient Memory Usage**: Smart memory management ensures high memory efficiency, suitable for handling large-scale datasets.
-- **Newton Conjugate Gradient Optimization**: Supports large datasets with efficient Newton conjugate gradient optimization, enhancing the search for global optimal solutions.
-- **Suitable for Large-Scale Data Analysis**: Especially designed for partial wave analysis tasks that involve handling and analyzing large volumes of data.
-
-## Documentation
-
-For more detailed usage instructions and API documentation, please visit the [Documentation Link](Tutorial_CN.md).
+- **LLM-Powered Code Generation**: Leverages state-of-the-art language models to generate production-ready code
+- **Configuration-Driven**: Define physics models in simple TOML configuration files
+- **Intelligent Caching**: Avoids redundant API calls with smart caching mechanisms
+- **Code Optimization**: Automatically compresses and optimizes generated code for better performance
+- **Template-Based**: Uses proven templates to ensure consistent, high-quality output
 
 ## Contributing
 
-We welcome contributions in various forms, including but not limited to new features, bug fixes, and documentation improvements. Please share your ideas with us through Pull Requests or Issues.
+We welcome contributions! Please feel free to submit Pull Requests or open Issues for bug reports and feature requests.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). Please refer to the accompanying LICENSE file for details.
+This project is licensed under the [MIT License](LICENSE).
 
 ## Contact
-
-If you have any questions or suggestions, please contact us via the following channels:
 
 - GitHub Issues: https://github.com/caihao/PWACG/issues
