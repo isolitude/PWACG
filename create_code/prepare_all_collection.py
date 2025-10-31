@@ -63,12 +63,13 @@ class Prepare_All():
         calculate_func_coll = list()
         for mod in self.mod_info:
             mod.update(calculate_func = "{}_{}_{}".format(mod["amp"],mod["prop"]["prop_phi"]["name"],mod["prop"]["prop_f"]["name"]))
-            # 振幅名字，phi传播子名字，f传播子名字，作为计算函数名字
+            # 振幅名字，phi传播子名字，f传播子名字，三个加在一起作为计算函数名字
             mod.update(prop_name = "{}_{}".format(mod["prop"]["prop_phi"]["name"],mod["prop"]["prop_f"]["name"]))
             calculate_func_coll.append(mod["calculate_func"])
         self.calculate_func_coll = sorted(set(calculate_func_coll),key=calculate_func_coll.index)
         self.render_dict.update(calculate_func_coll = self.calculate_func_coll)
         # print("mod_info\n",self.mod_info)
+        # print("\n",self.calculate_func_coll)
         # 得到mod_name的集合
         self.mod_name_list = list()
         for mod in self.mod_info:
@@ -83,15 +84,16 @@ class Prepare_All():
         for mod in self.mod_info:
             self.mods_collection[mod["calculate_func"]][mod["mod"]] = mod
         self.render_dict.update(mods_collection = self.mods_collection)
-        # print("mods_collection:\n",self.mods_collection)
+        # print("mods_collection:\n",self.mods_collection) #没有问题
     
     def func_info_god(self):
         # func_info 就是把 mod_info 变成list, mod_info 是将 amp_prop 作为标签, 简并了同一类的其他字典
         self.func_info = list()
-        for key_func, func in self.mods_collection.items():
+        # print(self.mods_collection.items())
+        for key_func, func in self.mods_collection.items(): 
             key = list(func.keys())[0]
             self.func_info.append(func[key])
-        # print(self.func_info)
+        # print("Func_info:",self.func_info) # 为什么只有10个，因为amp_prop一共有十类，mods_collection的key一共就是十个
         self.render_dict.update(func_info = self.func_info)
         # 在func_info里增加参数分类
         for func in self.func_info:
@@ -142,24 +144,30 @@ class Prepare_All():
             self.name_index_complete[name] = index
             index += 1
         mod_name_list = list()
+        print("mode_info\n",self.mod_info)
+        print("func_info\n",self.func_info)
         for func in self.func_info:
             func["mod_name_list"] = list()
             for mod in self.mod_info:
-                if re.match(func["calculate_func"],mod["calculate_func"]):
+                # print(mod)
+                if re.fullmatch(func["calculate_func"],mod["calculate_func"]):
+                # if re.match(func["calculate_func"],mod["calculate_func"]):# 这里会导致 phif0_kk_BW_BW_f0_kk 被额外加入 phif0_kk_BW_BW
                     func["mod_name_list"].append({mod["mod"]:{key:self.name_index_complete[key] for key in mod["args"] if not (re.match(".*phi",key) or re.match(".*c",key) or re.match(".*t",key))}})
                     mod_name_list += [mod['mod'].replace("_"+tag,"") for tag in self.info["combine"]["tag"] if re.match(".*"+tag,mod["mod"])]
-            # print("func[mod_name_list]\n",func["mod_name_list"])
+            print("func[mod_name_list]\n",func["mod_name_list"])# mod_name_list多混入了一个其他的f0
         self.render_dict.update(mod_name_list = mod_name_list)
         dimensions_list = list()
         for func in self.func_info:
             for mod in self.mod_info:
-                if re.match(func["calculate_func"],mod["calculate_func"]):
+                if re.fullmatch(func["calculate_func"],mod["calculate_func"]):
                     temp = 0
                     for arg in mod["args"].values():
                         if not "fix" in arg:
                             temp += 1
                     dimensions_list.append(temp)
+                    print(mod["calculate_func"],temp)
         self.lasso_frac_dict = dict()
+        # print(dimensions_list)
         for dimension, name in zip(dimensions_list, mod_name_list):
             self.lasso_frac_dict[name] = [dimension]
         self.render_dict.update(lasso_frac_dict=self.lasso_frac_dict)
@@ -243,12 +251,18 @@ class Prepare_All():
     def get_args_dict(self):
         # 简并后提取出参数名字，根据参数名字排序，并得到对应的参数位置
         foo_dict = dict()
+        print(self.parameters_list)
         for para in self.parameters_list:
             i = 0
             for key, args in self.args_collection.items():
-                if re.match(para, args["name"]):
+                if re.match(para, args["name"]):# 从字符串开头匹配正则表达式
+                    # 错误发生在对于BW_BW和BW_f2_BW进行提取时，
+                    # 两种不同传播子里面的变量（比如pipi_f2_mass）使用的是相同的名字，
+                    # 对于不同类型的传播子，应该使用不同的变量名字
                     i = i + 1
             foo_dict[para] = i
+            # print("total ",para," numbers",i)# for kk 此处没有问题
+        
         begin = 0
         self.args_dict = dict()
         for tag, value in foo_dict.items():
@@ -258,14 +272,19 @@ class Prepare_All():
         # print("args_collection:\n",self.args_collection)
         # 在func_info里添加const的index
         all_const_index = list()
+        # print(self.func_info)
         for func in self.func_info:
             for key_arg, arg in self.args_dict.items():
                 if re.match(func["const"], key_arg):
                     func["const_index"] = arg
                     all_const_index = all_const_index + arg
-            func["num_mod"] = int(len(func["const_index"])/func["damp"])
+            func["num_mod"] = int(len(func["const_index"])/func["damp"])#计算每种key的mod数量
+            # 问题出现在num_mod的计算上 const_index和damp之一存在问题
+            # const_index 出现了错误，把BW_f2_BW和bw_bw混在一起了
         self.render_dict.update(all_const_index = all_const_index)
         self.render_dict.update(args_dict = self.args_dict)
+        # print(self.func_info) 
+
 
     def checkKey(self, dict, key): 
         if key in dict.keys(): 

@@ -276,7 +276,7 @@ class Draw_Mods(Dxplot):
         min_value = self.mc_{{sbc}}.min() - 0.15
         save_all_wt = self.all_wt
         save_wt_data = self.wt_data
-        if re.match("b.*","{{sbc}}"):
+        if re.match("b.*","{{sbc}}") or re.match("kst.*","{{sbc}}"):
             temp_wt = dict()
             for key in self.all_wt.files:
                 temp_wt[key] = onp.append(self.all_wt[key],self.all_wt[key])
