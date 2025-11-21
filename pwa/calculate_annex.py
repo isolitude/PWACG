@@ -129,8 +129,16 @@
                 {{func.amp}}):
 
         {% if func.prop_name == "BW_BWb" %}
+
+        {%- if func.Sbc.b1 == 'b124_kk' %}
         bw1 = self.BW_BW_f0_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
         bw2 = self.BW_BW_f2_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        {%- endif %}
+
+        {%- if func.Sbc.b1 == 'b124_pipi' %}
+        bw1 = self.BW_BW_f0_pipi({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        bw2 = self.BW_BW_f2_pipi({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        {%- endif %}
 
         amp_caled_1 = {{func.amp}}[[0, 2], :, :]  # SS and DS
         amp_caled_2 = {{func.amp}}[[1, 3], :, :]  # DS and DD
@@ -208,8 +216,16 @@
                 {{func.amp}}):
 
         {% if func.prop_name == "BW_BWb" %}
+
+        {%- if func.Sbc.b1 == 'b124_kk' %}
         bw1 = self.BW_BW_f0_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
         bw2 = self.BW_BW_f2_kk({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        {%- endif %}
+
+        {%- if func.Sbc.b1 == 'b124_pipi' %}
+        bw1 = self.BW_BW_f0_pipi({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        bw2 = self.BW_BW_f2_pipi({{func["prop"]["prop_phi"]["paras"]|join(',')}},{{func["prop"]["prop_f"]["paras"]|join(',')}})
+        {%- endif %}
 
         amp_caled_1 = {{func.amp}}[[0, 2], :, :]  # SS and DS
         amp_caled_2 = {{func.amp}}[[1, 3], :, :]  # DS and DD
