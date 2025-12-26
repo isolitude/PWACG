@@ -59,19 +59,6 @@
         tmp = dplex.dconstruct(Sbc - rm, g1)
         return dplex.ddivide(gr, tmp)
     
-    # def flatte500(self,m_,b1,b2,b3,b4,b5,Sbc):
-    #     m2 = m_*m_
-    #     rp = 0.139556995
-    #     mpi2d2 = 0.009739946882
-    #     cro1 = np.sqrt(np.abs((Sbc-(2*rp)**2)*Sbc))/Sbc
-    #     cro2 = np.sqrt(np.abs((m2-(2*rp)**2)*m2))/m2
-    #     pip1 = np.sqrt(np.abs(1.0 - 0.3116765584/Sbc))/(1.0+np.exp(9.8-3.5*Sbc))
-    #     pip2 = np.sqrt(np.abs(1.0 - 0.3116765584/m2))/(1.0+np.exp(9.8-3.5*m2)) # ?
-    #     cgam1 = m_*(b1+b2*Sbc)*(Sbc-mpi2d2)/(m2-mpi2d2)*np.exp(-(Sbc-m2)/b3)*cro1/cro2
-    #     cgam2 = m_*b4*pip1/pip2
-    #     tmp = dplex.dconstruct(m2-Sbc, -b5*(cgam1+cgam2))
-    #     return dplex.ddivide(1.0, tmp)
-
     def flatte500(self,m_,b1,b2,A,Sbc):
         m_pi = 0.139556995
         m_k = 0.493677
@@ -117,39 +104,10 @@
         return dplex.ddivide(1.0,T_pipi)
 
     def BW_long(self, m_,w_,Sbc):
-        # 按照LHCb note 加入BW为1的无共振贡献
+        # LHCb note BW=1 for non resonnace
         l = (Sbc.shape)[0]
-        temp = dplex.dconstruct(m_*m_ - m_*m_ + np.ones(l),  -m_*w_*np.zeros(l))
+        temp = dplex.dconstruct(np.ones(l),  np.zeros(l))
         return dplex.ddivide(1.0, temp)
-
-    def BW_f0_pipi(self,m_,w_,Sbc):# paramtered width l=0
-        S_b = 0.0194797849
-        S_c = 0.0194797849
-        m02 = m_*m_
-        q2 = 0.25*(Sbc + S_b - S_c)**2/Sbc - S_b
-        q = np.sqrt(q2)
-        q02 = 0.25*(m02 + S_b - S_c)**2/m02 - S_b
-        q0 = np.sqrt(q02)
-        t = q/q0
-
-        gam = w_*t*m_/Sbc # bf = 1
-        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
-        return dplex.ddivide(1.0, tmp)
-
-    def BW_f2_pipi(self,m_,w_,Sbc):# paramtered width l=2
-        S_b = 0.0194797849
-        S_c = 0.0194797849
-        m02 = m_*m_ 
-        q2 = 0.25*(Sbc + S_b - S_c)**2/Sbc - S_b
-        q = np.sqrt(q2)
-        q02 = 0.25*(m02 + S_b - S_c)**2/m02 - S_b
-        q0 = np.sqrt(q02)
-        t = (q/q0)**5#not sure who is more accuracy
-        bf = (9+3*q02+q02*q02)/(9+3*q2+q2*q2)
-
-        gam = w_*t*m_/Sbc*bf
-        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
-        return dplex.ddivide(1.0, tmp)
 
     def BW_f0_kk(self,m_,w_,Sbc):# paramtered width l=0
         S_b = 0.24371698
@@ -168,6 +126,35 @@
     def BW_f2_kk(self,m_,w_,Sbc):# paramtered width l=2
         S_b = 0.24371698
         S_c = 0.24371698
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = (q/q0)**5#not sure who is more accuracy
+        bf = (9+3*q02+q02*q02)/(9+3*q2+q2*q2)
+
+        gam = w_*t*m_/Sbc*bf
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+
+    def BW_f0_pipi(self,m_,w_,Sbc):# paramtered width l=0
+        S_b = 0.0194797849
+        S_c = 0.0194797849
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = q/q0
+
+        gam = w_*t*m_/Sbc # barrier_factor == 1
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+
+    def BW_f2_pipi(self,m_,w_,Sbc):# paramtered width l=2
+        S_b = 0.0194797849
+        S_c = 0.0194797849
         m02 = m_*m_
         q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
         q = np.sqrt(q2)
@@ -209,9 +196,8 @@
         a = 1.0 + d*w_/m_
         b = dplex.dconstruct(m_*m_ - Sbc + f, -m_*gam)
         return dplex.ddivide(a, b)
-
     def BW_f0_b1(self,m_,w_,Sbc):# paramtered width l=0 b1 state SS and DS
-        S_b = 1.3433505409 #b1=m_phi+m_pi
+        S_b = 1.0392986916 #b1=m_phi+m_pi
         S_c = 0.0194797849
         m02 = m_*m_
         q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
@@ -222,10 +208,34 @@
         gam = w_*t*m_/Sbc # barrier_factor == 1
         tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
         return dplex.ddivide(1.0, tmp)
-
     def BW_f2_b1(self,m_,w_,Sbc):# paramtered width l=0 b1 state SS and DS
-        S_b = 1.3433505409 #b1=m_phi+m_pi
+        S_b = 1.0392986916 #b1=m_phi+m_pi
         S_c = 0.0194797849
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = (q/q0)**5#not sure who is more accuracy
+        bf = (9+3*q02+q02*q02)/(9+3*q2+q2*q2)
+        gam = w_*t*m_/Sbc*bf
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+    def BW_f0_k0(self,m_,w_,Sbc):# paramtered width l=0 b1 state SS and DS
+        S_b = 1.0392986916 #b1=m_phi+m_pi
+        S_c = 0.24371698
+        m02 = m_*m_
+        q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
+        q = np.sqrt(q2)
+        q02 = np.abs(0.25*(m02 + S_b - S_c)**2/m02 - S_b)
+        q0 = np.sqrt(q02)
+        t = q/q0
+        gam = w_*t*m_/Sbc # barrier_factor == 1
+        tmp = dplex.dconstruct(m_*m_ - Sbc,-m_*gam)
+        return dplex.ddivide(1.0, tmp)
+    def BW_f2_k0(self,m_,w_,Sbc):# paramtered width l=0 b1 state SS and DS
+        S_b = 1.0392986916 #b1=m_phi+m_pi
+        S_c = 0.24371698
         m02 = m_*m_
         q2 = np.abs(0.25*(Sbc + S_b - S_c)**2/Sbc - S_b)
         q = np.sqrt(q2)
@@ -239,5 +249,55 @@
 # 可以发现，传播子在结构上相似，对于同一个轨道角动量的情况差距仅出现在Sb和Sc上，
 # 因此最终对于相同l的结果可以统一为一个函数，只需要传入不同的Sb和Sc即可
 # 最终的函数应该可以构造为 BW_f0(self,m_,w_,Sbc,Sb,Sc)
+    def flatte980_pipi(self,m_,g_pipi,rg,betar,Sbc):
+        # beta1 和 beta2 是衰变到kk和pipi的矢量(b1,b2)
+        '''
+        实际的振幅应该表示为
+        T = 1/D(S) <--就是之前计算的tmp_A
+        再乘以一个矩阵G，前两列表示pipi，后两列是kk，在实际的运算中再乘以矢量b1和b2,这里把beta1提出来合并到振幅中
+        g1^2  g1g2
+        g2g1  g2^2
+        '''     
+        g_kk = rg * g_pipi
+        m_k = 0.493677
+        m_pi = 0.13957061
+
+        tmp_kk = 1 - 4*m_k*m_k / Sbc
+        sign_kk = np.sign(tmp_kk)
+        tmp_pipi = 1 - 4*m_pi*m_pi / Sbc
+        sign_pipi = np.sign(tmp_pipi)
+        real_kk_factor = ( tmp_kk - sign_kk * tmp_kk ) / (tmp_kk * 2)
+        img_kk_factor = ( tmp_kk + sign_kk * tmp_kk ) / (tmp_kk * 2)
+
+        rho_kk = np.sqrt(np.abs(1 - 4*m_k*m_k / Sbc))
+        rho_pipi = np.sqrt(np.abs(1 - 4*m_pi*m_pi / Sbc))
+
+        tmp_B = g_pipi + betar*g_kk
+        tmp_B = tmp_B*g_pipi
+
+        tmp_A = dplex.dconstruct(m_**2 - Sbc + g_kk*rho_kk*real_kk_factor, -1*m_*(g_pipi*rho_pipi + g_kk*rho_kk*img_kk_factor))
+        return dplex.ddivide(tmp_B, tmp_A)
+    def flatte980_kk(self,m_,g_pipi,rg,betar,Sbc):
+   
+        g_kk = rg * g_pipi
+        m_k = 0.493677
+        m_pi = 0.13957061
+
+        tmp_kk = 1 - 4*m_k*m_k / Sbc
+        sign_kk = np.sign(tmp_kk)
+        tmp_pipi = 1 - 4*m_pi*m_pi / Sbc
+        sign_pipi = np.sign(tmp_pipi)
+        real_kk_factor = ( tmp_kk - sign_kk * tmp_kk ) / (tmp_kk * 2)
+        img_kk_factor = ( tmp_kk + sign_kk * tmp_kk ) / (tmp_kk * 2)
+
+        rho_kk = np.sqrt(np.abs(1 - 4*m_k*m_k / Sbc))
+        rho_pipi = np.sqrt(np.abs(1 - 4*m_pi*m_pi / Sbc))
+
+        tmp_B = g_pipi + betar*g_kk
+        tmp_B = tmp_B*g_kk
+
+        tmp_A = dplex.dconstruct(m_**2 - Sbc + g_kk*rho_kk*real_kk_factor, -1*m_*(g_pipi*rho_pipi + g_kk*rho_kk*img_kk_factor))
+        return dplex.ddivide(tmp_B, tmp_A)
+
 
 {% endmacro %}
