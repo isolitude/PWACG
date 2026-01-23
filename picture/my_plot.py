@@ -70,6 +70,7 @@ def WritePreliminary():
 # Make a legend; 
 # position will have to change depending on the data shape
 def MakeLegend(hist_list,hist_info,xlow=0.87,ylow=0.45,xhi=0.945,yhi=0.945):
+    # xlow, ylow, xhi, yhi = 0.20, 0.57, 0.275, 0.945 # set legend on the left
     leg = TLegend(xlow, ylow, xhi, yhi)
     leg.AddEntry(hist_list[0], "Data", "LEP")
     leg.AddEntry(hist_list[1], "MC", "L")
@@ -184,7 +185,8 @@ def PlotDataMC(filename,  # Name for the output files, without extension
         SetMeetingStyle()
 
     c1 = TCanvas("bes3plots","BESIII Plots", 1200,900)
-
+    c1.SetLogy(1)  # 开启 Y 轴对数坐标
+    hist_list[0].SetMinimum(1)#设置最小值，针对对数坐标
     y_max = max([hist.GetMaximum() for hist in hist_list])  # 找到所有直方图的最大值
     for hist in hist_list:
         hist.GetYaxis().SetRangeUser(0, y_max * 1.1)  # 统一设置 Y 轴范围

@@ -188,7 +188,12 @@ class Draw_Mods(Dxplot):
             if re.match(tag+".*", arg_name):
                 latex_tag = value
         mpl.NameAxes(hist_list[0], "M_{0}{1}{2} (GeV)".format("{",latex_tag,"}"), "Events/{:.2f} GeV".format((max_value - min_value)/{{draw_config.weight_option.bin}}))
-
+        global_max = 0
+        for h in hist_list:
+            if h.GetMaximum() > global_max:
+                global_max = h.GetMaximum()
+        hist_list[0].SetMaximum(global_max * 1.1)# 针对所有的直方图，灵活设置最大高度
+        # 此处的修改与my_plot中相比更为灵活
         mpl.PlotDataMC("output/pictures/partial_mods_pictures/{}_weight".format(arg_name), hist_list, 0, legend_info)
 
     def fill_hist(self, data_hist, arg_name, data, max_value, min_value):
