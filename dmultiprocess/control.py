@@ -60,9 +60,9 @@ class Control(object):
             threading_list[_] = Thread(target = self.likelihood_in_sigle_device, args = (args_float, _))
             threading_list[_].daemon = 1
         for _ in range(self.thread_gpus):
-            threading_list[_].start()
+             threading_list[_].start()
         for _ in range(self.thread_gpus):
-            threading_list[_].join()
+             threading_list[_].join()
         {% for lh in lh_coll %}
         # result_{{lh.tag}} = onp.sum(self.{{lh.tag}}_data_lh) + {{lh.data_size}}*onp.log(onp.sum(self.{{lh.tag}}_mc_lh))
         result_{{lh.tag}} = onp.sum(self.{{lh.tag}}_data_lh) + {{lh.data_size}}*onp.log(onp.sum(self.{{lh.tag}}_mc_lh)/{{lh.mc_size}})
@@ -87,9 +87,9 @@ class Control(object):
             threading_list[_] = Thread(target = self.jit_grad_likelihood_in_sigle_device, args = (args_float, _))
             threading_list[_].daemon = 1
         for _ in range(self.thread_gpus):
-            threading_list[_].start()
+             threading_list[_].start()
         for _ in range(self.thread_gpus):
-            threading_list[_].join()
+             threading_list[_].join()
         {% for lh in lh_coll %}
         result_{{lh.tag}} = onp.sum(self.{{lh.tag}}_data_grad,axis=(0,1)) + {{lh.data_size}}*onp.sum(self.{{lh.tag}}_mc_grad,axis=(0,1))/onp.sum(self.{{lh.tag}}_mc_grad_v)
         {% endfor %}
@@ -111,9 +111,9 @@ class Control(object):
             threading_list[_] = Thread(target = self.mc_likelihood_in_sigle_device, args = (args_float, _))
             threading_list[_].daemon = 1
         for _ in range(self.thread_gpus):
-            threading_list[_].start()
+             threading_list[_].start()
         for _ in range(self.thread_gpus):
-            threading_list[_].join()
+             threading_list[_].join()
         {% for lh in lh_coll %}
         self.{{lh.tag}}_mc_hvp_value = onp.sum(self.{{lh.tag}}_mc_hvp_v)
         {% endfor %}
@@ -132,9 +132,9 @@ class Control(object):
             threading_list[_] = Thread(target = self.jit_hvp_in_sigle_device, args = (args_float, any_vector, _))
             threading_list[_].daemon = 1
         for _ in range(self.thread_gpus):
-            threading_list[_].start()
+             threading_list[_].start()
         for _ in range(self.thread_gpus):
-            threading_list[_].join()
+             threading_list[_].join()
         self.thread_mc_likelihood(args_float)
         {% for lh in lh_coll %}
         result_{{lh.tag}} = onp.sum(self.{{lh.tag}}_data_hvp, axis=(0,1)) + {{lh.data_size}}*(onp.sum(self.{{lh.tag}}_mc_hvp,axis=(0,1))/self.{{lh.tag}}_mc_hvp_value - onp.einsum("ikm,jln,n->m",self.{{lh.tag}}_mc_hvp_g,self.{{lh.tag}}_mc_hvp_g,any_vector)/(self.{{lh.tag}}_mc_hvp_value**2))
@@ -175,7 +175,7 @@ class Control(object):
     def run(self, process_initializer, process_returns):
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(lambda x:str(x),process_initializer[0][0].total_gpu_id))
         os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"]=str(process_initializer[0][0].gpu_memory_limit_percentage)
-        # os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # 用多少拿多少的选项
+        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # 用多少拿多少的选项
         config.update("jax_enable_x64", True)
 
         logger.info("fit_pull_sample begins!!!!")
@@ -276,7 +276,10 @@ class Control(object):
             with open(filename[0], encoding='utf-8') as f:
                 pwa_json = json.loads(f.read())
                 mod_info = pwa_json["mod_info"]
-                mod_index = [n for n, mod in enumerate(mod_info) if re.match(".*"+"_".join(mod["mod"].split("_")[0:-1])+".*"," ".join(mod_name_list))]
+                # mod_index = [n for n, mod in enumerate(mod_info) if re.match(".*"+"_".join(mod["mod"].split("_")[0:-1])+".*"," ".join(mod_name_list))]
+                {% for lh in lh_coll %}
+                mod_index = [n for n, mod in enumerate(mod_info) if re.match(".*" + mod["mod"].replace("_{{lh.tag}}", "") + ".*", " ".join(mod_name_list))]
+                {% endfor %}
                 mod_info = [mod_info[i] for i in mod_index]
                 for i in range(len(name_list)):
                     for mod in mod_info:

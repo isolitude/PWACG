@@ -144,6 +144,11 @@
         amp_caled_2 = {{func.amp}}[[1, 3], :, :]  # DS and DD
 
         const_ph = dplex.dconstruct({{func.const}}, {{func.theta}})
+        {%- if func.inta_const is defined %}
+        {# is defined是jinja2的语法，判断func.inta_const是否在func里面被定义了 #}
+        inta_ph = dplex.dconstruct({{func.inta_const}}, {{func.inta_theta}})
+        const_ph = dplex.deinsum("li,l->li", const_ph, inta_ph)
+        {%- endif %}
         const_ph1 = const_ph[:, :, [0, 2]]
         const_ph2 = const_ph[:, :, [1, 3]]
 
@@ -165,7 +170,12 @@
         const_ph = dplex.dconstruct({{func.const}}, {{func.theta}})
         # const_ph = dplex.deinsum_ord("li,li->li", np.exp({{func.const}}), ph)
         # print("const_ph",const_ph.shape)
-        phif = dplex.deinsum_ord("ijk,li->ljk", {{func.amp}}, const_ph)
+        {%- if func.inta_const is defined %}
+        inta_ph = dplex.dconstruct({{func.inta_const}}, {{func.inta_theta}})
+        # print("inta_ph",inta_ph.shape)
+        const_ph = dplex.deinsum("li,l->li", const_ph, inta_ph)#给每个相位因子进行相位修正
+        {%- endif %}
+        phif = dplex.deinsum_ord("ijk,li->ljk", {{func.amp}}, const_ph)#给每个振幅乘上相位因子
         # phif = dplex.deinsum("ijk,li->ljk", phif, const_ph)
         phif = dplex.deinsum("ljk,lj->jk", phif, bw)
         {% endif %}
@@ -252,6 +262,11 @@
         amp_caled_2 = {{func.amp}}[[1, 3], :, :]  # DS and DD
 
         const_ph = dplex.dconstruct({{func.const}}, {{func.theta}})
+        {%- if func.inta_const is defined %}
+        inta_ph = dplex.dconstruct({{func.inta_const}}, {{func.inta_theta}})
+        # const_ph = dplex.deinsum("lij,l->lij", const_ph, inta_ph)
+        const_ph = dplex.deinsum("li,l->li", const_ph, inta_ph)
+        {%- endif %}
         const_ph1 = const_ph[:, :, [0, 2]]
         const_ph2 = const_ph[:, :, [1, 3]]
 
@@ -273,6 +288,10 @@
         const_ph = dplex.dconstruct({{func.const}}, {{func.theta}})
         # const_ph = dplex.deinsum_ord("li,li->li", np.exp({{func.const}}), ph)
         # print("const_ph",const_ph.shape)
+        {%- if func.inta_const is defined %}
+        inta_ph = dplex.dconstruct({{func.inta_const}}, {{func.inta_theta}})
+        const_ph = dplex.deinsum("li,l->li", const_ph, inta_ph)
+        {%- endif %}
         phif = dplex.deinsum_ord("ijk,li->ljk", {{func.amp}}, const_ph)
         # phif = dplex.deinsum("ijk,li->ljk", phif, const_ph)
         phif = dplex.deinsum("ljk,lj->ljk", phif, bw)

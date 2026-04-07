@@ -25,11 +25,13 @@ class Create_Code(prepare_all_collection.Prepare_All):
                         self._binding_point = {**self._binding_point, **dict_json["external_binding"]}
             else:
                 print(" Warning! No such file \"{}\", You should run fit create such file".format(addr_pwa_info))
+        # print(self.all_mod_info) # 读取json文件 10+2*2=14 mod
 
     def jinja_fit(self):
         print("jinja_fit:")
         self.mod_info = sum(self.all_mod_info, [])
         self.prepare_all()
+        # print(self.jinja_fit_info) #模板文件位置
         for module in self.jinja_fit_info.keys():
             self.render_dict.update(run_config = {**self.parameters["base"]["run_config"], **self.parameters[module]["run_config"]})
             self.render_dict.update(data_config = {**self.parameters["base"]["data_config"], **self.parameters[module]["data_config"]})
@@ -48,7 +50,7 @@ class Create_Code(prepare_all_collection.Prepare_All):
         print("jinja_draw:")
         for n, mod_info in enumerate(self.all_mod_info):
             self.mod_info = mod_info
-            self.prepare_all()
+            self.prepare_all() # 都执行了prepare_all
             for module in self.jinja_draw_info.keys():
                 self.render_dict.update(run_config = {**self.parameters["base"]["run_config"], **self.parameters[module]["run_config"]})
                 self.render_dict.update(data_config = {**self.parameters["base"]["data_config"], **self.parameters[module]["data_config"]})

@@ -249,6 +249,7 @@
 # 可以发现，传播子在结构上相似，对于同一个轨道角动量的情况差距仅出现在Sb和Sc上，
 # 因此最终对于相同l的结果可以统一为一个函数，只需要传入不同的Sb和Sc即可
 # 最终的函数应该可以构造为 BW_f0(self,m_,w_,Sbc,Sb,Sc)
+{#
     def flatte980_pipi(self,m_,g_pipi,rg,betar,Sbc):
         # beta1 和 beta2 是衰变到kk和pipi的矢量(b1,b2)
         '''
@@ -298,6 +299,6 @@
 
         tmp_A = dplex.dconstruct(m_**2 - Sbc + g_kk*rho_kk*real_kk_factor, -1*m_*(g_pipi*rho_pipi + g_kk*rho_kk*img_kk_factor))
         return dplex.ddivide(tmp_B, tmp_A)
-
+#}
 
 {% endmacro %}

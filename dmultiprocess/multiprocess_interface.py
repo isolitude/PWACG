@@ -96,7 +96,13 @@ class Process_Initializer_Generator():
 
     def data_npz(self,num):
         {% for tensor in amp_collection %}
+        {# 如果需要独立的张量，去掉下面这一行 #}
+        {%- set tensor_base = tensor.rsplit('_', 1)[0] %} 
+        {%- if '3686' in tensor.split('_') or '3773' in tensor.split('_') %}
+        self.data_{{tensor}} = onp.load("{{data_path}}/{{tensor_base}}.npy")
+        {%- else %}
         self.data_{{tensor}} = onp.load("{{data_path}}/{{tensor}}.npy")
+        {%- endif %}
         self.all_data_{{tensor}} = onp.array_split(self.data_{{tensor}},num,axis=1)
         {% endfor %}
         {% for sbc in sbc_collection %}
@@ -110,7 +116,12 @@ class Process_Initializer_Generator():
 
     def mc_npz(self,num):
         {% for tensor in amp_collection %}
+        {%- set tensor_base = tensor.rsplit('_', 1)[0] %}
+        {%- if '3686' in tensor.split('_') or '3773' in tensor.split('_') %}
+        self.mc_{{tensor}} = onp.load("{{mc_path}}/{{tensor_base}}.npy")
+        {%- else %}
         self.mc_{{tensor}} = onp.load("{{mc_path}}/{{tensor}}.npy")
+        {%- endif %}
         self.all_mc_{{tensor}} = onp.array_split(self.mc_{{tensor}},num,axis=1)
         {% endfor %}
         {% for sbc in sbc_collection %}
@@ -120,7 +131,12 @@ class Process_Initializer_Generator():
 
     def truth_npz(self,num):
         {% for tensor in amp_collection %}
+        {%- set tensor_base = tensor.rsplit('_', 1)[0] %}
+        {%- if '3686' in tensor.split('_') or '3773' in tensor.split('_') %}
+        self.truth_{{tensor}} = onp.load("data/mc_truth/{{tensor_base}}.npy")
+        {%- else %}
         self.truth_{{tensor}} = onp.load("data/mc_truth/{{tensor}}.npy")
+        {%- endif %}
         self.all_truth_{{tensor}} = self.truth_{{tensor}}[:,0:150000]
         {% endfor %}
         {% for sbc in sbc_collection %}
@@ -130,7 +146,12 @@ class Process_Initializer_Generator():
 
     def regular(self):
         {% for tensor in amp_collection %}
+        {%- set tensor_base = tensor.rsplit('_', 1)[0] %}
+        {%- if '3686' in tensor.split('_') or '3773' in tensor.split('_') %}
+        self.re_{{tensor}} = onp.load("{{mc_path}}/{{tensor_base}}.npy")
+        {%- else %}
         self.re_{{tensor}} = onp.load("{{mc_path}}/{{tensor}}.npy")
+        {%- endif %}
         {% endfor %}
         {% for tensor in amp_collection %}
         regular_{{tensor}} = 1./onp.average(onp.sqrt(onp.sum(onp.asarray(self.re_{{tensor}})**2,axis=2)),axis=1)

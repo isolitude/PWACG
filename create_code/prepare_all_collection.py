@@ -74,6 +74,7 @@ class Prepare_All():
         self.mod_name_list = list()
         for mod in self.mod_info:
             self.mod_name_list.append(mod["mod"])
+        # print(self.mod_name_list)
         # print(sorted(set(self.mod_name_list),key=self.mod_name_list.index))
 
     def get_mods_coll(self):
@@ -103,6 +104,7 @@ class Prepare_All():
             func[self.info["merge"]] = list()
             for key, args in func["args"].items():
                 temp.append(args["name"])
+            # print("temp\n",temp)
             for para in temp:
                 all_temp.append(para)
                 if re.match(".*theta", para):
@@ -113,8 +115,15 @@ class Prepare_All():
                     func["const"] = para
                 if re.match(".*"+self.info["merge"],para):
                     func[self.info["merge"]].append(para)
+                # interference term: amp_inta / pha_inta carry the module prefix
+                # (e.g. kk_f0l_amp_inta) so they pass the tag filter in get_lh_collection
+                # and are not counted in damp (no reshape needed — shape is (n_mods,))
+                if re.match(".*amp_inta", para):
+                    func["inta_const"] = para
+                if re.match(".*tha_inta", para):
+                    func["inta_theta"] = para
             func["all_paras"] = sorted(set(all_temp),key=all_temp.index)
-            func["compl_paras"] = [ i for i in all_temp if i not in theta_const_temp ]
+            # func["compl_paras"] = [ i for i in all_temp if i not in theta_const_temp ]
         # print(self.func_info)
         # 在 func_info 里添加独立分波个数和同一个mod的共振态的个数
         for func in self.func_info:
@@ -144,8 +153,8 @@ class Prepare_All():
             self.name_index_complete[name] = index
             index += 1
         mod_name_list = list()
-        print("mode_info\n",self.mod_info)
-        print("func_info\n",self.func_info)
+        # print("mode_info\n",self.mod_info)
+        # print("func_info\n",self.func_info)
         for func in self.func_info:
             func["mod_name_list"] = list()
             for mod in self.mod_info:
@@ -154,7 +163,7 @@ class Prepare_All():
                 # if re.match(func["calculate_func"],mod["calculate_func"]):# 这里会导致 phif0_kk_BW_BW_f0_kk 被额外加入 phif0_kk_BW_BW
                     func["mod_name_list"].append({mod["mod"]:{key:self.name_index_complete[key] for key in mod["args"] if not (re.match(".*phi",key) or re.match(".*c",key) or re.match(".*t",key))}})
                     mod_name_list += [mod['mod'].replace("_"+tag,"") for tag in self.info["combine"]["tag"] if re.match(".*"+tag,mod["mod"])]
-            print("func[mod_name_list]\n",func["mod_name_list"])# mod_name_list多混入了一个其他的f0
+            # print("func[mod_name_list]\n",func["mod_name_list"])# mod_name_list多混入了一个其他的f0
         self.render_dict.update(mod_name_list = mod_name_list)
         dimensions_list = list()
         for func in self.func_info:
@@ -165,7 +174,7 @@ class Prepare_All():
                         if not "fix" in arg:
                             temp += 1
                     dimensions_list.append(temp)
-                    print(mod["calculate_func"],temp)
+                    # print(mod["calculate_func"],temp)
         self.lasso_frac_dict = dict()
         # print(dimensions_list)
         for dimension, name in zip(dimensions_list, mod_name_list):
@@ -251,7 +260,7 @@ class Prepare_All():
     def get_args_dict(self):
         # 简并后提取出参数名字，根据参数名字排序，并得到对应的参数位置
         foo_dict = dict()
-        print(self.parameters_list)
+        # print(self.parameters_list)
         for para in self.parameters_list:
             i = 0
             for key, args in self.args_collection.items():
@@ -280,16 +289,18 @@ class Prepare_All():
                     all_const_index = all_const_index + arg
             func["num_mod"] = int(len(func["const_index"])/func["damp"])#计算每种key的mod数量
             # 问题出现在num_mod的计算上 const_index和damp之一存在问题
-            # const_index 出现了错误，把BW_f2_BW和bw_bw混在一起了
+            # const_index 出现了错误，把BW_BW_f2和BW_BW混在一起了
         self.render_dict.update(all_const_index = all_const_index)
         self.render_dict.update(args_dict = self.args_dict)
         # print(self.func_info) 
 
-
-    def checkKey(self, dict, key): 
-        if key in dict.keys(): 
+    # def checkKey(self, my_dict, key): 
+    #     # 这样写更灵活，你可以在调用时传入 key="fix"
+    #     return my_dict.get(key) is True # 修复Fix检查的bug
+    def checkKey(self, dict, key):
+        if key in dict.keys():
             return True
-    
+
     def get_binding_list(self):
         # 数据结构为有向无环图，使用字典实现，因此图的终点的变量的名字不在外层字典的key里
         # 所以可以轻松地将外层的key，也就是除了终点以外的变量设置为不浮动，而终点的变量为浮动
@@ -300,11 +311,15 @@ class Prepare_All():
             if self.checkKey(args, "binding"):
                 self._binding_point[key] = (args["binding"])
         # prepare binding
+
         for key, binding in self._binding_point.items():
+            # print(f"Processing key: {key}, binding point: {binding.get('point')}")
+            # print(f"name_list_complete: {self.name_list_complete}")
             i = 0
             if key in self.name_list_complete:
                 for name in self.name_list_complete:
                     if re.match(key, name):
+                        # print(f"Found binding point match: {name} at index {i}")
                         begin = i
                     if re.match(binding["point"], name):
                         end = i
@@ -332,10 +347,13 @@ class Prepare_All():
 
     def get_range_list(self):
         key_list = dict()
+        # print("args_collection\n",self.args_collection)
         for key, args in self.args_collection.items():
+            # print(key, args)
             if self.checkKey(args,"range"):
                 key_list[key] = args["range"]
         range_dict = dict()
+        # print("key_list\n",key_list)
         for key in key_list:
             for name, i in self.name_index_complete.items():
                 if re.match(key, name):
@@ -351,6 +369,7 @@ class Prepare_All():
         mw_range = [value for value in list(range_info.values())]
         self.render_dict.update(mw_index = mw_index)
         self.render_dict.update(mw_range = mw_range)
+        # print(self.info["fit"]["boundary"])
         if self.info["fit"]["boundary"]:
             self.range_dict = range_info
 
@@ -363,6 +382,7 @@ class Prepare_All():
         for key, args in self.args_collection.items():
             if self.checkKey(args, "fix"):
                 fix_list.append(key)
+        # print("fix_list\n",fix_list)
         binding_list = list(self._binding_point.keys())
         i = 0
         str_fix = " ".join(fix_list + binding_list)
@@ -381,6 +401,9 @@ class Prepare_All():
         # print(self.func_info)
         self.slit_args_dict = dict() # 使用了变换的参数解压缩字典
         self.trans_args_dict = dict() # 惩罚项
+        # print("args_dict\n",self.args_dict)
+        # print("float index",self.float_index)
+        # print("range dict",self.range_dict)
         for key, arg in self.args_dict.items():
             temp = list()
             trans_temp = list()
@@ -408,6 +431,7 @@ class Prepare_All():
 
                     temp.append(str(self.args_list_complete[i]))
             temp = ",".join(temp)
+            # print("temp",temp)
             self.slit_args_dict[key] = "np.array([{}])".format(temp)
             self.trans_args_dict[key] = trans_temp
             if re.match(".*const", key) or re.match(".*theta",key):
@@ -421,7 +445,7 @@ class Prepare_All():
                     break
     
     def get_args_index_collection(self):
-        who = ["const", "theta", "mass", "width"] 
+        who = ["const", "theta", "mass", "width","amp_inta","tha_inta"] 
         temp = dict()
         for w in who:
             temp[w] = list()
@@ -439,19 +463,26 @@ class Prepare_All():
         #         for i in index:
         #             if i in self.float_index:
         #                 temp["width"].append(self.float_index.index(i))
+        #======================================
+        # print("temp\n",temp)
         render_temp = temp
 
         temp = dict()
+        # print(self.args_dict.items())
         for w in who:
             temp[w] = dict()
+            # print(self.info["combine"]["tag"])
             for tag in self.info["combine"]["tag"]:
-                temp[w][tag] = list()
+                temp[w][tag] = list()# 例如temp["const"]["kk"]
+                # print(self.args_dict.items())
                 for key, index in self.args_dict.items():
-                    if re.match(".*"+tag, key):
+                    # print("key",key,"index",index)
+                    if re.match(".*"+tag, key): # 在干涉因子的"name"里面加入kk就可以解决
                         if re.match(".*"+w, key):
                             for i in index:
                                 if i in self.float_index:
                                     temp[w][tag].append(self.float_index.index(i))
+        # print("temp\n",temp)
         temp["flatte"] = dict()
         who_flatte = [".*f980_rg.*",".*f980_g"]
         reg_list = list(map(re.compile, who_flatte))
@@ -494,6 +525,7 @@ class Prepare_All():
             temp_d = [d for d in data if re.match(".*"+tag,d)]
             combine_data_add_all_amp[tag] = (" + ".join(temp_d))
             temp_l = [d for d in lasso if re.match(".*"+tag,d)]
+            print("temp_l\n",temp_l)
             self.lasso_frac[tag] = temp_l
             combine_lasso_data_add_all_amp[tag] = (" + ".join(["np.sum(np.sqrt(np.einsum(\"ljk->l\",dplex.dabs({0}))))".format(amp) for amp in temp_l]))
             temp_m = [d for d in mc if re.match(".*"+tag,d)]
@@ -567,6 +599,9 @@ class Prepare_All():
                 Param_limits = "+".join(trans_temp)
             else:
                 Param_limits = "0.0"
+            if Param_limits == "":
+                Param_limits = "0.0"
+            # print("Param_limits",Param_limits)#保证在全部参数fix时仍然可以正常输出
 
             sum_frac = "sum_frac = " + "np.sum(dplex.dabs({})) \n".format("+".join(["np.einsum(\"mljk->mjk\", {})".format(l) for l in self.lasso_frac[tag]]))
 
@@ -577,16 +612,29 @@ class Prepare_All():
             temp_l = list()
             temp_r = list()
             temp_f = list()
+            ordered_amps = {} # 用字典来保持原始插入顺序
             for amp in self.lasso_frac[tag]:
-                if re.match(".*_l_",amp):
-                    temp_l.append(amp)
-                elif re.match(".*_r_",amp):
-                    temp_r.append(amp)
+                if re.match(".*_l_", amp) or re.match(".*_r_", amp):
+                    base_name = re.sub(r'_[lr]_', '_X_', amp)
+                    if base_name not in ordered_amps:
+                        # 第一次遇到这个配对，初始化字典并占据当前顺序的位置
+                        ordered_amps[base_name] = {'l': '', 'r': ''}
+                    if re.match(".*_l_",amp):
+                        ordered_amps[base_name]['l'] = amp
+                    elif re.match(".*_r_",amp):
+                        ordered_amps[base_name]['r'] = amp
+                else:# 普通元素直接用自己作为 key 和 value 记录，占据当前位置
+                    ordered_amps[amp] = amp
+            temp_frac = []
+            for key, value in ordered_amps.items():
+                if isinstance(value, dict):
+                    # 遇到配对的，把 left 和 right 拼接起来 (保证 L 在前，R 在后)
+                    temp_frac.append(f"{value['l']}+{value['r']}")
                 else:
-                    temp_f.append(amp)
-            temp_x = [temp_l[i]+"+"+temp_r[i] for i in range(len(temp_l))]
-            temp_frac = temp_f + temp_x
+                    # 普通元素直接追加
+                    temp_frac.append(value)
 
+            # print("temp_frac",temp_frac)
             smooth_add_frac = "np.power({}-{},2.0)".format("+".join(["np.sum(np.einsum(\"ljk->l\",dplex.dabs({0}))/sum_frac)".format(amp) for amp in temp_frac]), self.info["fit"]["total_frac"][tag])
 
             step_function = "step_function = (" + "{0})*{1} ".format(smooth_add_frac, self.info["fit"]["lambda_tfc"]) + " + " + Param_limits
