@@ -126,13 +126,15 @@
             {
                 "kk":1.1
             },
+            "3773_total_frac":0.2,
+            "3773_lambda_tfc":1000.0,
             "boundary":true,
-            "lambda_tfc":0,
+            "lambda_tfc":1000.0,
             "random":true
         },
         "draw":
         {
-            "use_weight":false,
+            "use_weight":true,
             "write":true,
             "frac_cut":0.01
         },

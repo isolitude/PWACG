@@ -525,7 +525,7 @@ class Prepare_All():
             temp_d = [d for d in data if re.match(".*"+tag,d)]
             combine_data_add_all_amp[tag] = (" + ".join(temp_d))
             temp_l = [d for d in lasso if re.match(".*"+tag,d)]
-            print("temp_l\n",temp_l)
+            # print("temp_l\n",temp_l)
             self.lasso_frac[tag] = temp_l
             combine_lasso_data_add_all_amp[tag] = (" + ".join(["np.sum(np.sqrt(np.einsum(\"ljk->l\",dplex.dabs({0}))))".format(amp) for amp in temp_l]))
             temp_m = [d for d in mc if re.match(".*"+tag,d)]
@@ -605,6 +605,8 @@ class Prepare_All():
 
             sum_frac = "sum_frac = " + "np.sum(dplex.dabs({})) \n".format("+".join(["np.einsum(\"mljk->mjk\", {})".format(l) for l in self.lasso_frac[tag]]))
 
+            # print(self.lasso_frac[tag])
+
             # 独立的 fit_frac 约束
             temp_frac = ["np.sum(np.heaviside(np.einsum(\"ljk->l\",dplex.dabs({0}))/sum_frac - 1.0,1.0))".format(amp) for amp in self.lasso_frac[tag]]
 
@@ -634,10 +636,17 @@ class Prepare_All():
                     # 普通元素直接追加
                     temp_frac.append(value)
 
-            # print("temp_frac",temp_frac)
+            #==================================
+            frac_limits_3773= "0.0"
+            if tag == "kk":
+                pattern_3773 = re.compile(r"3773")
+                filtered_frac_3773 = ["np.sum(np.einsum(\"ljk->l\",dplex.dabs({0}))/sum_frac)".format(amp) for amp in temp_frac if pattern_3773.search(amp)]
+                add_frac_3773 = "np.power({}-{},2.0)".format("+".join(filtered_frac_3773), self.info["fit"]["3773_total_frac"])
+                frac_limits_3773 = "+(" + "{0})*{1} ".format(add_frac_3773, self.info["fit"]["3773_lambda_tfc"])
+            #==================================
             smooth_add_frac = "np.power({}-{},2.0)".format("+".join(["np.sum(np.einsum(\"ljk->l\",dplex.dabs({0}))/sum_frac)".format(amp) for amp in temp_frac]), self.info["fit"]["total_frac"][tag])
-
-            step_function = "step_function = (" + "{0})*{1} ".format(smooth_add_frac, self.info["fit"]["lambda_tfc"]) + " + " + Param_limits
+            
+            step_function = "step_function = (" + "{0})*{1} ".format(smooth_add_frac, self.info["fit"]["lambda_tfc"]) + " + " + Param_limits + frac_limits_3773
 
             bounding[tag] = sum_frac + "\n        " + step_function 
 

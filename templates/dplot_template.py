@@ -146,6 +146,7 @@ class Draw_Weight(Dxplot):
         gStyle.SetOptStat(11)
         gStyle.SetOptFit(1011)
         c.cd()
+        hist.SetMaximum(hist.GetMaximum() * 1.1)
         hist.Draw("E1")    
         c.Draw()
         c.SaveAs(address +arg_name+ ".png")
@@ -207,8 +208,19 @@ class Draw_Mods(Dxplot):
             hist.Fill(data[i], fit_result_wt[i])
         hist.Scale(self.data_size/sum_wt)
         coinfo["mc"] = [hist,0]
+
+        # ── _3773_ 合并 ───────────────────────────────────────────────
+        _3773_wt_acc = None
+        # ─────────────────────────────────────────────────────────────
+
         {% for func in func_info %}
         {%- for num in range(func.num_mod) %}
+
+        {%- if '_3773_' in func.calculate_func %}
+        _tmp_wt = self.all_wt["{{func.calculate_func}}_{{num}}"]
+        _3773_wt_acc = _tmp_wt.copy() if _3773_wt_acc is None else _3773_wt_acc + _tmp_wt
+        {%- else %}
+
         {{func.calculate_func}}_wt = self.all_wt["{{func.calculate_func}}_{{num}}"]
         hist = TH1D("{{func.calculate_func}}_{{num}}", "{{func.calculate_func}}_{{num}} partial wave", {{draw_config.weight_option.bin}}, min_value, max_value)
         for i in range(data.shape[0]):
@@ -219,8 +231,19 @@ class Draw_Mods(Dxplot):
         for tag, value in self.latexjson["mod"].items():
             if re.match(tag, list(mod_name_list.keys())[0]):
                 coinfo[list(mod_name_list.keys())[0]].append(value)
+        {%- endif %}
         {%- endfor %}
         {% endfor %}
+
+        # ── 统一填充合并的 _3773_ 直方图 ──────────────────────────────
+        if _3773_wt_acc is not None:
+            hist_3773 = TH1D("combined_3773", "combined _3773_ partial wave",
+                             {{draw_config.weight_option.bin}}, min_value, max_value)
+            for i in range(data.shape[0]):
+                hist_3773.Fill(data[i], _3773_wt_acc[i])
+            hist_3773.Scale(self.data_size/sum_wt)
+            coinfo["combined_3773"] = [hist_3773, "combined $\\sqrt{s}=3773$ MeV"]
+        # ─────────────────────────────────────────────────────────────
         all_hist = [i[0] for i in list(coinfo.values())]
         legend_info = [i[1] for i in list(coinfo.values())]
         self.draw(arg_name, all_hist, legend_info, max_value, min_value)
@@ -251,8 +274,27 @@ class Draw_Mods(Dxplot):
         for i in range(data.shape[0]):
             hist_result.Fill(data[i], fit_result_wt[i])
         hist_result.Scale(self.data_size/sum_wt)
+
+        # ── _3773_ 合并用临时变量 ──────────────────────────────────────
+        _3773_wt_acc       = None   # 累加拟合权重
+        _3773_truth_wt_acc = None   # 累加 truth 权重
+        _3773_legend_info  = {}     # 合并 param_name → index
+        # ─────────────────────────────────────────────────────────────
+
         {% for func in func_info %}
         {%- for num in range(func.num_mod) %}
+        {# ── 累加 _3773_ 共振态（正则等价: re.search('_3773_', name)）──#}
+        {%- if '_3773_' in func.calculate_func %}
+        _tmp_wt = self.all_wt["{{func.calculate_func}}_{{num}}"]
+        _3773_wt_acc = _tmp_wt.copy() if _3773_wt_acc is None else _3773_wt_acc + _tmp_wt
+        _tmp_truth = self.all_truth_wt["{{func.calculate_func}}_{{num}}"]
+        _3773_truth_wt_acc = _tmp_truth.copy() if _3773_truth_wt_acc is None else _3773_truth_wt_acc + _tmp_truth
+        mod_name_list = {{func.mod_name_list[loop.index0]}}
+        self.fit_table = {**self.fit_table, **mod_name_list}
+        _3773_legend_info.update(list(mod_name_list.values())[0])   # 合并所有参数索引
+        {%- else %}
+        {# ── 非 _3773_ 共振态：保持原逻辑独立绘制 ──────────────────────#}
+
         {{func.calculate_func}}_wt = self.all_wt["{{func.calculate_func}}_{{num}}"]
         hist = TH1D("{{func.calculate_func}}_{{num}}", "{{func.calculate_func}}_{{num}} partial wave", {{draw_config.weight_option.bin}}, min_value, max_value)
         for i in range(data.shape[0]):
@@ -269,8 +311,25 @@ class Draw_Mods(Dxplot):
         fit_fraction_dict[list(mod_name_list.keys())[0]] = frac
         self.draw_single(arg_name+list(mod_name_list.keys())[0], frac, all_hist, list(mod_name_list.values())[0], max_value, min_value)
         all_hist.clear()
+        {%- endif %}
         {%- endfor %}
         {% endfor %}
+        # ── 循环结束后统一绘制合并的 _3773_ 直方图 ────────────────────
+        if _3773_wt_acc is not None:
+            hist_3773 = TH1D("combined_3773", "combined _3773_ partial wave",
+                             {{draw_config.weight_option.bin}}, min_value, max_value)
+            for i in range(data.shape[0]):
+                hist_3773.Fill(data[i], _3773_wt_acc[i])
+            hist_3773.Scale(self.data_size/sum_wt)
+            all_hist.append(data_hist)
+            all_hist.append(hist_result)
+            all_hist.append(hist_3773)
+            frac_3773 = onp.sum(_3773_truth_wt_acc)/sum_truth_wt
+            fit_fraction_dict["combined_3773"] = frac_3773
+            self.draw_single(arg_name + "combined_3773", frac_3773, all_hist,
+                             _3773_legend_info, max_value, min_value)
+            all_hist.clear()
+        # ─────────────────────────────────────────────────────────────
         self.table_temp = sorted(fit_fraction_dict.items(), key=lambda item:item[1],reverse=True)
 
     def draw_mods(self):
@@ -281,6 +340,7 @@ class Draw_Mods(Dxplot):
         min_value = self.mc_{{sbc}}.min() - 0.15
         save_all_wt = self.all_wt
         save_wt_data = self.wt_data
+        {# 问题在这里，没有匹配上，在这加一个或应该就可以了 #}
         if re.match("b.*","{{sbc}}") or re.match("kst.*","{{sbc}}"):
             temp_wt = dict()
             for key in self.all_wt.files:
@@ -301,7 +361,7 @@ class Draw_Mods(Dxplot):
         self.fill_single_hist(hist_{{sbc}}, "{{sbc}}", self.mc_{{sbc}}, max_value, min_value)
         self.all_wt = save_all_wt
         self.wt_data = save_wt_data
-
+{#
         # max_value = self.mc_costheta_{{sbc}}.max() + 0.1
         # min_value = self.mc_costheta_{{sbc}}.min() - 0.1
         # hist_costheta_{{sbc}} = TH1D("{{sbc}} data", "{{sbc}} data distribution ", {{draw_config.weight_option.bin}}, min_value, max_value)
@@ -311,17 +371,21 @@ class Draw_Mods(Dxplot):
         # for i in range(self.data_costheta_{{sbc}}.shape[0]):
         #     hist_costheta_{{sbc}}.Fill(self.data_costheta_{{sbc}}[i])
         # self.fill_hist(hist_costheta_{{sbc}}, "{{sbc}}_theta", self.mc_costheta_{{sbc}})
+#}        
         {% endfor %}
         sum_frac = 0
         aic_r = 0
         cut = 0.1
         for tu in self.table_temp:
             sum_frac += tu[1]
+            if tu[1] > cut:
+                aic_r += 1
+            if tu[0] not in self.fit_table:
+                fit_fraction_coll.append({"mod_name": tu[0], "fraction": tu[1]})
+                continue
             table = self.fit_table[tu[0]]
             _temp = {"mod_name":tu[0],"fraction":tu[1],"mass":self.fit_value[list(table.values())[0]],"mass error":float(self.error[list(table.values())[0]]),"width":self.fit_value[list(table.values())[1]],"width error":float(self.error[list(table.values())[1]])}
             fit_fraction_coll.append(_temp)
-            if tu[1] > cut:
-                aic_r += 1
         fit_fraction_coll.append({"mod_name":"sum_fraction","fraction":sum_frac})
         logger.info("# table of fit result sort by frac")
         # logger.info("{}".format(json.dumps(fit_fraction_coll, ensure_ascii=False)))
@@ -345,35 +409,35 @@ class Draw_Mods(Dxplot):
         with open("output/draw/fit_fraction_table_{{lh_coll[0].tag}}.latex","w") as latex_file:
             latex_file.write(latex_string)
 
-
-class Draw_Pull(Dxplot):
-    def __init__(self):
-        self.read_pull()
-        self.all_args = dict()
-        {% for arg_name, arg in args_collection.items() %}
-        self.all_args["{{arg_name}}"] = {{arg.value}}
-        {% endfor %}
+{#
+# class Draw_Pull(Dxplot):
+#     def __init__(self):
+#         self.read_pull()
+#         self.all_args = dict()
+#         {% for arg_name, arg in args_collection.items() %}
+#         self.all_args["{{arg_name}}"] = {{arg.value}}
+#         {% endfor %}
     
-    def fill_draw(self, arg_name, all_arg_index):
-        print(arg_name)
-        for n, arg_index in enumerate(all_arg_index):
-            value = onp.asarray(self.value[:, arg_index:arg_index+1])
-            error = onp.asarray(self.error[:, arg_index:arg_index+1])
-            pull_value = (value - self.all_args[arg_name][n]) / error
-            hist = TH1D(arg_name+"_"+str(n), "pull distribution of number.{1} {0}".format(arg_name, str(n)), {{draw_config.pull_option.bin}}, {{draw_config.pull_option.min}}, {{draw_config.pull_option.max}})
-            for i in range((pull_value.shape)[0]):
-                hist.Fill(pull_value[i])
-            hist.Fit('gaus','S','Q')
-            hist.GetXaxis().SetTitle("pull")
-            hist.GetYaxis().SetTitle("events")
-            self.draw(arg_name+"_number"+str(n), hist, "output/pictures/pull_pictures/")
+#     def fill_draw(self, arg_name, all_arg_index):
+#         print(arg_name)
+#         for n, arg_index in enumerate(all_arg_index):
+#             value = onp.asarray(self.value[:, arg_index:arg_index+1])
+#             error = onp.asarray(self.error[:, arg_index:arg_index+1])
+#             pull_value = (value - self.all_args[arg_name][n]) / error
+#             hist = TH1D(arg_name+"_"+str(n), "pull distribution of number.{1} {0}".format(arg_name, str(n)), {{draw_config.pull_option.bin}}, {{draw_config.pull_option.min}}, {{draw_config.pull_option.max}})
+#             for i in range((pull_value.shape)[0]):
+#                 hist.Fill(pull_value[i])
+#             hist.Fit('gaus','S','Q')
+#             hist.GetXaxis().SetTitle("pull")
+#             hist.GetYaxis().SetTitle("events")
+#             self.draw(arg_name+"_number"+str(n), hist, "output/pictures/pull_pictures/")
 
-    def draw_pull(self):
-        self.fill_draw("phi_m", [0])
-        self.fill_draw("phi_w", [1])
-        {% for key_arg, arg in args_dict.items() %}
-        self.fill_draw("{{key_arg}}", {{arg}})
-        {% endfor %}
+#     def draw_pull(self):
+#         self.fill_draw("phi_m", [0])
+#         self.fill_draw("phi_w", [1])
+#         {% for key_arg, arg in args_dict.items() %}
+#         self.fill_draw("{{key_arg}}", {{arg}})
+#         {% endfor %}
 
 # def Draw_correlation():
 #         error_file = glob.glob("{{jinja_fit_info.fit.ResultFile}}/correlation"+"*")
@@ -393,3 +457,4 @@ class Draw_Pull(Dxplot):
 #             mpl.PloatScatter(hist2d, "output/pictures/likelihood_pictures/correlation_error")
 #         else:
 #             print("not exit correlation file")
+#}

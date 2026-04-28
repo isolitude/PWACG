@@ -32,25 +32,35 @@ logger = logging.getLogger("fit")
         const_index = onp.array({{args_index_collection.const}})
         mass_index = onp.array({{args_index_collection.mass}})
         width_index = onp.array({{args_index_collection.width}})
+        inta_amp_index = onp.array({{args_index_collection.amp_inta}})
+        inta_tha_index = onp.array({{args_index_collection.tha_inta}})
+        target_index = onp.concatenate([inta_amp_index, inta_tha_index])
         mw_index = onp.array({{mw_index}})
         mw_range = {{mw_range}}
+{#
         # self.args_float[theta_index] = onp.pi/2.0
         # self.args_float[const_index] = onp.random.rand(const_index.shape[0])
+#}
         self.compile_func()
         min_fcn = 40000.0
         result_info = dict()
         for n in range({{info.fit.Cycles}}):
             {% if info.fit.random %}
+            {#
             theta = 2*onp.pi*onp.random.rand(theta_index.shape[0])
             self.args_float[theta_index] = 1e-1*onp.cos(theta)
             self.args_float[const_index] = 1e-1*onp.sin(theta)
             disturb = 50.0
             logger.info("disturb of args_float: {}".format(0.5/disturb))
             self.args_float = self.args_float*((onp.random.rand(self.args_float.shape[0]) - 0.5) / disturb + 1.0)
+            #}
+            rand_vals = onp.random.rand(target_index.shape[0])# 0~1均匀分布
+            logger.info("a + bi value: {}".format(rand_vals-0.5))
+            self.args_float[target_index] = (rand_vals - 0.5) 
             {% endif %}
             args_float = self.args_float
             t1 = time.time()
-            res = minimize(fun=self.thread_likelihood, x0=args_float, jac=self.thread_grad_likelihood, hessp=self.thread_hvp, method="Newton-CG", callback=self.my_callback, options={"disp":False, "xtol":1e-8})
+            res = minimize(fun=self.thread_likelihood, x0=args_float, jac=self.thread_grad_likelihood, hessp=self.thread_hvp, method="Newton-CG", callback=self.my_callback, options={"disp":False, "xtol":1e-6})
             t2 = time.time()
             logger.info("{0} {1} {2}".format("="*15,str(n),"="*15))
             logger.info("fcn: {}".format(res.fun))
@@ -84,6 +94,7 @@ logger = logging.getLogger("fit")
                 v[x] = 1.0
                 my_hessian[:,x] = self.thread_hvp(args_float,v)
             # print("eig :",onp.linalg.eig(my_hessian)[0])
+            # 以下全为新添加注释
             ferror = onp.sqrt(onp.diag(onp.linalg.inv(my_hessian)))
             fvalue_float = fvalue[self.float_list]
             error = onp.zeros((self.args_list.shape)[0])
@@ -94,6 +105,11 @@ logger = logging.getLogger("fit")
             {% endif %}
             logger.info("error: {}".format(error))
             self.save_in_json(fvalue,error,"{{jinja_fit_info.fit.ResultFile}}",str(n),result_info)
+
+            # correlation = onp.linalg.inv(my_hessian)
+            # print("correlation :",correlation)
+            # onp.save("correlation",correlation)
+
         min_fcn = [min_fcn]
         logger.info("{0} the minist value {1} {0}".format("*"*4,min_fcn))
 {% endcall %}
