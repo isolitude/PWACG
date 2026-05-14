@@ -6,12 +6,138 @@ import re
 import sys
 import jinja2
 import glob
+import logging
 from create_code import prepare_all_collection
+
+log = logging.getLogger(__name__)
+
+
+def _build_ir_from_legacy(ctrl):
+    """Build PWAIR from the data already loaded by Prepare_All.
+
+    Used during S2-S4 migration. Once S5 removes jinja2, this conversion
+    happens upstream in create_all_scripts.py.
+    """
+    from create_code.schema.pwa_models import (
+        PWAInfo, ModInfo, PropGroup, PropSpec, SbcSpec, ArgSpec,
+    )
+    from create_code.schema.generator_models import GeneratorConfig
+    from create_code.schema.params_models import (
+        ParametersFile, RunConfig, DataConfig, DrawConfig, DrawSwitch,
+        PullOption, WeightOption, ModuleParams, CacheTensorEntry,
+    )
+    from create_code.ir.builder import build_ir
+
+    # Build PWAInfo from all_mod_info (list of lists of raw dicts)
+    all_mods: list = []
+    for mod_group in ctrl.all_mod_info:
+        for m in mod_group:
+            # Build ArgSpec for each arg
+            args: dict = {}
+            for k, a in m.get("args", {}).items():
+                rng = tuple(a["range"]) if "range" in a and a["range"] else None
+                binding = a.get("binding")
+                args[k] = ArgSpec(
+                    value=a["value"],
+                    name=a["name"],
+                    fix=a.get("fix", False),
+                    error=a.get("error", 0.0),
+                    range=rng,
+                    binding=binding,
+                )
+            # Build PropGroup
+            propl = m["prop"]
+            prop_phi = PropSpec(
+                name=propl["prop_phi"]["name"],
+                paras=tuple(propl["prop_phi"]["paras"]),
+            )
+            prop_f = PropSpec(
+                name=propl["prop_f"]["name"],
+                paras=tuple(propl["prop_f"]["paras"]),
+            )
+            prop = PropGroup(prop_phi=prop_phi, prop_f=prop_f)
+            sbc = SbcSpec(phi=m["Sbc"]["phi"], f=m["Sbc"]["f"])
+            all_mods.append(ModInfo(
+                mod=m["mod"],
+                amp=m["amp"],
+                prop=prop,
+                Sbc=sbc,
+                args=args,
+            ))
+
+    pwa_info = PWAInfo(
+        mod_info=tuple(all_mods),
+        external_binding=getattr(ctrl, "_binding_point", {}) or {},
+    )
+
+    # Build GeneratorConfig from the original dict_generator
+    gen_dict = {
+        "id": ctrl.generator_id,
+        "jinja_fit_info": ctrl.jinja_fit_info,
+        "jinja_draw_info": ctrl.jinja_draw_info,
+        "json_pwa": ctrl.json_pwa,
+        "annex_info": ctrl.info,
+    }
+    gen_config = GeneratorConfig(**gen_dict)
+
+    # Build ParametersFile
+    # parameters dict: {"base": {"run_config": {...}, "data_config": {...}}, "fit": {...}, ...}
+    module_params: dict = {}
+    for mod_key, mod_val in ctrl.parameters.items():
+        rc = mod_val["run_config"]
+        dc = mod_val.get("data_config", {})
+        module_params[mod_key] = ModuleParams(
+            run_config=RunConfig(
+                total_gpu_id=tuple(rc.get("total_gpu_id", ())),
+                processes_gpus=rc.get("processes_gpus"),
+                max_processes=rc.get("max_processes"),
+                max_processes_memory=rc.get("max_processes_memory"),
+                thread_gpus=rc.get("thread_gpus"),
+                threads_in_one_gpu=rc.get("threads_in_one_gpu"),
+            ),
+            data_config=DataConfig(
+                data_slices=dc.get("data_slices"),
+                mc_slices=dc.get("mc_slices"),
+                mini_run=dc.get("mini_run"),
+            ),
+        )
+
+    draw_cfg = ctrl.draw_config
+    params = ParametersFile(
+        parameters=module_params,
+        draw_config=DrawConfig(
+            switch=DrawSwitch(
+                likelihood=draw_cfg["switch"]["likelihood"],
+                weight=draw_cfg["switch"]["weight"],
+                pull=draw_cfg["switch"]["pull"],
+                mods=draw_cfg["switch"]["mods"],
+            ),
+            pull_option=PullOption(
+                bin=draw_cfg["pull_option"]["bin"],
+                min=draw_cfg["pull_option"]["min"],
+                max=draw_cfg["pull_option"]["max"],
+            ),
+            weight_option=WeightOption(
+                bin=draw_cfg["weight_option"]["bin"],
+                mods_num=draw_cfg["weight_option"]["mods_num"],
+            ),
+        ),
+        CacheTensor={
+            k: CacheTensorEntry(data=v["data"], mc=v["mc"])
+            for k, v in ctrl.CacheTensor.items()
+        },
+    )
+
+    from pathlib import Path
+    return build_ir(pwa_info, gen_config, params, data_dir=Path(ctrl._data_dir),
+                    external_binding=getattr(ctrl, "_binding_point", None))
+
 
 class Create_Code(prepare_all_collection.Prepare_All):
     def __init__(self, dict_generator):
         super().__init__(dict_generator)
-    
+        self._data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+
     def read_pwa(self, key):
         self.all_mod_info = list()
         for addr_pwa_info in self.json_pwa[key]:
@@ -26,32 +152,143 @@ class Create_Code(prepare_all_collection.Prepare_All):
             else:
                 print(" Warning! No such file \"{}\", You should run fit create such file".format(addr_pwa_info))
 
+    def _get_llm(self):
+        """Lazy-init LLM client. Returns None if DEEPSEEK_API_KEY is not set."""
+        try:
+            from create_code.codegen.llm_client import LLMClient
+            return LLMClient()
+        except Exception as e:
+            log.warning(f"LLM client unavailable: {e}")
+            return None
+
+    def _generate_run_script(self, ir, artifact_name, module, run_config, data_config, output_path):
+        """Generate a run script via LLM codegen. Returns file content or None on failure."""
+        try:
+            from create_code.codegen.generator import CodeGenerator
+            llm = self._get_llm()
+            if llm is None:
+                log.warning(f"[{artifact_name}] No LLM available, falling back to jinja2")
+                return None
+
+            gen = CodeGenerator(llm=llm)
+            extra = {
+                "module": module,
+                "run_config": run_config,
+                "data_config": data_config,
+            }
+            content = gen.generate(ir, artifact_name, extra_context=extra)
+            if content:
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                print(f"  [LLM] {artifact_name} -> {output_path}")
+                return content
+        except Exception as e:
+            log.warning(f"[{artifact_name}] LLM generation failed: {e}")
+        return None
+
+    def _generate_code_script(self, ir, artifact_name, output_path, extra_context=None):
+        """Generate a code script (CodeTemplate) via LLM codegen. Returns file content or None on failure."""
+        try:
+            from create_code.codegen.generator import CodeGenerator
+            llm = self._get_llm()
+            if llm is None:
+                log.warning(f"[{artifact_name}] No LLM available, falling back to jinja2")
+                return None
+
+            gen = CodeGenerator(llm=llm)
+            content = gen.generate(ir, artifact_name, extra_context=extra_context)
+            if content:
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                print(f"  [LLM] {artifact_name} -> {output_path}")
+                return content
+        except Exception as e:
+            log.warning(f"[{artifact_name}] LLM generation failed: {e}")
+        return None
+
+    def _render_run_jinja2(self, module, address, render_dict, output_path):
+        """Fallback: render RunTemplate with jinja2."""
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
+        run = env.get_template("templates/" + address["RunTemplate"])
+        run_out = run.render(**render_dict)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.writelines(run_out)
+        print(f"  [jinja2] {module}_run -> {output_path}")
+
     def jinja_fit(self):
         print("jinja_fit:")
         self.mod_info = sum(self.all_mod_info, [])
         self.prepare_all()
+
+        # Build IR once for LLM codegen (shared across all fit modules)
+        ir = None
+        llm = self._get_llm()
+        if llm is not None:
+            try:
+                ir = _build_ir_from_legacy(self)
+            except Exception as e:
+                log.warning(f"IR build failed: {e}")
+
         for module in self.jinja_fit_info.keys():
-            self.render_dict.update(run_config = {**self.parameters["base"]["run_config"], **self.parameters[module]["run_config"]})
-            self.render_dict.update(data_config = {**self.parameters["base"]["data_config"], **self.parameters[module]["data_config"]})
+            merged_run = {**self.parameters["base"]["run_config"],
+                          **self.parameters.get(module, {}).get("run_config", {})}
+            merged_data = {**self.parameters["base"]["data_config"],
+                           **self.parameters.get(module, {}).get("data_config", {})}
+            self.render_dict.update(run_config=merged_run)
+            self.render_dict.update(data_config=merged_data)
             address = self.jinja_fit_info[module]
-            env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-            template = env.get_template("templates/" + address["CodeTemplate"])
-            template_out = template.render(**self.render_dict)
-            with open("rendered_scripts/" + address["CodeScript"], "w",encoding="utf-8") as f:
-                f.writelines(template_out)
-            run = env.get_template("templates/" + address["RunTemplate"])
-            run_out = run.render(**self.render_dict)
-            with open("run/" + address["RunScript"], "w",encoding="utf-8") as f:
-                f.writelines(run_out)
+
+            # CodeTemplate: try LLM (S3), fall back to jinja2
+            code_path = "rendered_scripts/" + address["CodeScript"]
+            generated = False
+            if ir is not None and llm is not None:
+                generated = self._generate_code_script(
+                    ir, module, code_path,
+                    extra_context={"module": module, "run_config": merged_run, "data_config": merged_data}
+                ) is not None
+            if not generated:
+                env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
+                template = env.get_template("templates/" + address["CodeTemplate"])
+                template_out = template.render(**self.render_dict)
+                with open(code_path, "w", encoding="utf-8") as f:
+                    f.writelines(template_out)
+
+            # RunTemplate: try LLM, fall back to jinja2
+            run_path = "run/" + address["RunScript"]
+            artifact_name = f"{module}_run"
+            generated = False
+            if ir is not None and llm is not None:
+                generated = self._generate_run_script(
+                    ir, artifact_name, module, merged_run, merged_data, run_path
+                ) is not None
+            if not generated:
+                self._render_run_jinja2(module, address, self.render_dict, run_path)
 
     def jinja_draw(self):
         print("jinja_draw:")
         for n, mod_info in enumerate(self.all_mod_info):
             self.mod_info = mod_info
             self.prepare_all()
+
+            # Build IR once per mod_info group
+            ir = None
+            llm = self._get_llm()
+            if llm is not None:
+                try:
+                    ir = _build_ir_from_legacy(self)
+                except Exception as e:
+                    log.warning(f"IR build failed: {e}")
+
             for module in self.jinja_draw_info.keys():
-                self.render_dict.update(run_config = {**self.parameters["base"]["run_config"], **self.parameters[module]["run_config"]})
-                self.render_dict.update(data_config = {**self.parameters["base"]["data_config"], **self.parameters[module]["data_config"]})
+                merged_run = {**self.parameters["base"]["run_config"],
+                              **self.parameters.get(module, {}).get("run_config", {})}
+                merged_data = {**self.parameters["base"]["data_config"],
+                               **self.parameters.get(module, {}).get("data_config", {})}
+                self.render_dict.update(run_config=merged_run)
+                self.render_dict.update(data_config=merged_data)
                 temp = self.render_dict
                 address = self.jinja_draw_info[module]
                 if module == "dplot" or module == "select":
@@ -59,25 +296,43 @@ class Create_Code(prepare_all_collection.Prepare_All):
                         latexjson = json.loads(f.read())
                         self.render_dict["sbc_collection"] = [sbc for sbc in list(latexjson["Sbc"].keys()) if re.match(".*"+self.render_dict["lh_coll"][0]["tag"],sbc)]
                 if "ResultFile" in address:
-                    self.render_dict.update(draw_result_file = address["ResultFile"][n])
+                    self.render_dict.update(draw_result_file=address["ResultFile"][n])
                 if "LassoResultFile" in address:
-                    self.render_dict.update(lasso_result_file = address["LassoResultFile"][n])
-                env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-                template = env.get_template("templates/" + address["CodeTemplate"])
-                template_out = template.render(**self.render_dict)
-                with open("rendered_scripts/" + address["CodeScript"][n], "w",encoding="utf-8") as f:
-                    f.writelines(template_out)
-                run = env.get_template("templates/" + address["RunTemplate"])
-                run_out = run.render(**self.render_dict)
-                with open("run/" + address["RunScript"], "w",encoding="utf-8") as f:
-                    f.writelines(run_out)
+                    self.render_dict.update(lasso_result_file=address["LassoResultFile"][n])
+
+                # CodeTemplate: try LLM (S3), fall back to jinja2
+                code_path = "rendered_scripts/" + address["CodeScript"][n]
+                generated = False
+                if ir is not None and llm is not None:
+                    generated = self._generate_code_script(
+                        ir, module, code_path,
+                        extra_context={"module": module, "run_config": merged_run, "data_config": merged_data}
+                    ) is not None
+                if not generated:
+                    env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
+                    template = env.get_template("templates/" + address["CodeTemplate"])
+                    template_out = template.render(**self.render_dict)
+                    with open(code_path, "w", encoding="utf-8") as f:
+                        f.writelines(template_out)
+
+                # RunTemplate: try LLM, fall back to jinja2
+                run_path = "run/" + address["RunScript"]
+                artifact_name = f"{module}_run"
+                generated = False
+                if ir is not None and llm is not None:
+                    generated = self._generate_run_script(
+                        ir, artifact_name, module, merged_run, merged_data, run_path
+                    ) is not None
+                if not generated:
+                    self._render_run_jinja2(module, address, self.render_dict, run_path)
+
                 self.render_dict = temp
-    
+
     def jinja_tensor(self):
         print("jinja_tensor:")
         self.initial_prepare()
         env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
         template = env.get_template("Tensor/RunCacheTensor.py")
         template_out = template.render(**self.render_dict)
-        with open("run/RunCacheTensor.py", "w",encoding="utf-8") as f:
+        with open("run/RunCacheTensor.py", "w", encoding="utf-8") as f:
             f.writelines(template_out)
