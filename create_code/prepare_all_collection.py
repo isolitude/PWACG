@@ -6,8 +6,6 @@ import os
 import re
 import numpy as onp
 
-import jinja2
-
 # os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 

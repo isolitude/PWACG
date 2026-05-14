@@ -4,7 +4,6 @@ import json
 import os
 import re
 import sys
-import jinja2
 import glob
 import logging
 from create_code import prepare_all_collection
@@ -15,7 +14,7 @@ log = logging.getLogger(__name__)
 def _build_ir_from_legacy(ctrl):
     """Build PWAIR from the data already loaded by Prepare_All.
 
-    Used during S2-S4 migration. Once S5 removes jinja2, this conversion
+    Used during S2-S4 migration. S5 removed jinja2; this conversion
     happens upstream in create_all_scripts.py.
     """
     from create_code.schema.pwa_models import (
@@ -167,7 +166,7 @@ class Create_Code(prepare_all_collection.Prepare_All):
             from create_code.codegen.generator import CodeGenerator
             llm = self._get_llm()
             if llm is None:
-                log.warning(f"[{artifact_name}] No LLM available, falling back to jinja2")
+                log.warning(f"[{artifact_name}] No LLM available")
                 return None
 
             gen = CodeGenerator(llm=llm)
@@ -193,7 +192,7 @@ class Create_Code(prepare_all_collection.Prepare_All):
             from create_code.codegen.generator import CodeGenerator
             llm = self._get_llm()
             if llm is None:
-                log.warning(f"[{artifact_name}] No LLM available, falling back to jinja2")
+                log.warning(f"[{artifact_name}] No LLM available")
                 return None
 
             gen = CodeGenerator(llm=llm)
@@ -208,18 +207,8 @@ class Create_Code(prepare_all_collection.Prepare_All):
             log.warning(f"[{artifact_name}] LLM generation failed: {e}")
         return None
 
-    def _render_run_jinja2(self, module, address, render_dict, output_path):
-        """Fallback: render RunTemplate with jinja2."""
-        env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-        run = env.get_template("templates/" + address["RunTemplate"])
-        run_out = run.render(**render_dict)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.writelines(run_out)
-        print(f"  [jinja2] {module}_run -> {output_path}")
-
-    def jinja_fit(self):
-        print("jinja_fit:")
+    def generate_fit(self):
+        print("generate_fit:")
         self.mod_info = sum(self.all_mod_info, [])
         self.prepare_all()
 
@@ -241,34 +230,23 @@ class Create_Code(prepare_all_collection.Prepare_All):
             self.render_dict.update(data_config=merged_data)
             address = self.jinja_fit_info[module]
 
-            # CodeTemplate: try LLM (S3), fall back to jinja2
+            # CodeTemplate: use LLM
             code_path = "rendered_scripts/" + address["CodeScript"]
-            generated = False
             if ir is not None and llm is not None:
-                generated = self._generate_code_script(
+                self._generate_code_script(
                     ir, module, code_path,
                     extra_context={"module": module, "run_config": merged_run, "data_config": merged_data}
-                ) is not None
-            if not generated:
-                env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-                template = env.get_template("templates/" + address["CodeTemplate"])
-                template_out = template.render(**self.render_dict)
-                with open(code_path, "w", encoding="utf-8") as f:
-                    f.writelines(template_out)
-
-            # RunTemplate: try LLM, fall back to jinja2
+                )
+            # RunTemplate: use LLM
             run_path = "run/" + address["RunScript"]
             artifact_name = f"{module}_run"
-            generated = False
             if ir is not None and llm is not None:
-                generated = self._generate_run_script(
+                self._generate_run_script(
                     ir, artifact_name, module, merged_run, merged_data, run_path
-                ) is not None
-            if not generated:
-                self._render_run_jinja2(module, address, self.render_dict, run_path)
+                )
 
-    def jinja_draw(self):
-        print("jinja_draw:")
+    def generate_draw(self):
+        print("generate_draw:")
         for n, mod_info in enumerate(self.all_mod_info):
             self.mod_info = mod_info
             self.prepare_all()
@@ -300,39 +278,32 @@ class Create_Code(prepare_all_collection.Prepare_All):
                 if "LassoResultFile" in address:
                     self.render_dict.update(lasso_result_file=address["LassoResultFile"][n])
 
-                # CodeTemplate: try LLM (S3), fall back to jinja2
+                # CodeTemplate: use LLM
                 code_path = "rendered_scripts/" + address["CodeScript"][n]
-                generated = False
                 if ir is not None and llm is not None:
-                    generated = self._generate_code_script(
+                    self._generate_code_script(
                         ir, module, code_path,
                         extra_context={"module": module, "run_config": merged_run, "data_config": merged_data}
-                    ) is not None
-                if not generated:
-                    env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-                    template = env.get_template("templates/" + address["CodeTemplate"])
-                    template_out = template.render(**self.render_dict)
-                    with open(code_path, "w", encoding="utf-8") as f:
-                        f.writelines(template_out)
-
-                # RunTemplate: try LLM, fall back to jinja2
+                    )
+                # RunTemplate: use LLM
                 run_path = "run/" + address["RunScript"]
                 artifact_name = f"{module}_run"
-                generated = False
                 if ir is not None and llm is not None:
-                    generated = self._generate_run_script(
+                    self._generate_run_script(
                         ir, artifact_name, module, merged_run, merged_data, run_path
-                    ) is not None
-                if not generated:
-                    self._render_run_jinja2(module, address, self.render_dict, run_path)
+                    )
 
                 self.render_dict = temp
 
-    def jinja_tensor(self):
-        print("jinja_tensor:")
+    def generate_tensor(self):
+        print("generate_tensor:")
         self.initial_prepare()
-        env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-        template = env.get_template("Tensor/RunCacheTensor.py")
-        template_out = template.render(**self.render_dict)
-        with open("run/RunCacheTensor.py", "w", encoding="utf-8") as f:
-            f.writelines(template_out)
+        ir = None
+        llm = self._get_llm()
+        if llm is not None:
+            try:
+                ir = _build_ir_from_legacy(self)
+            except Exception as e:
+                log.warning(f"IR build failed: {e}")
+        if ir is not None and llm is not None:
+            self._generate_code_script(ir, "tensor", "run/RunCacheTensor.py")

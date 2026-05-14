@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import jinja2
 import glob
 from create_code import create_control
 
@@ -24,9 +23,9 @@ if __name__ == "__main__":
         create_kk = create_control.Create_Code(dict_json)
         create_kk.initial_prepare()
         create_kk.read_pwa("fit")
-        create_kk.jinja_fit()
+        create_kk.generate_fit()
 
         create_kk.initial_prepare()
         create_kk.read_pwa("draw")
-        create_kk.jinja_draw()
-        create_kk.jinja_tensor()
+        create_kk.generate_draw()
+        create_kk.generate_tensor()
