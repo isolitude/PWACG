@@ -68,6 +68,8 @@ class LLMClient:
         if OpenAI is None:
             raise RuntimeError("openai package not installed. Run: pip install openai")
         self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
+        if not self.api_key:
+            raise ValueError("DEEPSEEK_API_KEY not set — LLM client unavailable")
         self.base_url = base_url or DEFAULT_BASE_URL
         self.model = model
         self.max_tokens = max_tokens

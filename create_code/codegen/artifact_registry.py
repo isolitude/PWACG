@@ -63,6 +63,86 @@ ARTIFACTS: dict[str, ArtifactSpec] = {
                     "Include the Logger class with logconfig_draw.json config. "
                     "Initialize likelihood=0.0 and call draw.get_result_dict() after run_multiprocess.",
     ),
+        # S2 Additional run templates
+    "batch_run": ArtifactSpec(
+        name="batch_run",
+        legacy_template="templates/batch_run_template.py",
+        output_path="run/batch_{generator_id}.py",
+        ir_fields=("generator_id", "jinja_fit_info"),
+        required_methods=(),
+        description="Entry point for batch scanning. "
+                    "IMPORTANT: Use the exact structure from the batch_run reference pattern in the system prompt. "
+                    "CodeScript comes from ir.jinja_fit_info.batch.CodeScript. "
+                    "Include the Logger class with logconfig_batch.json config.",
+    ),
+    "lasso_run": ArtifactSpec(
+        name="lasso_run",
+        legacy_template="templates/lasso_run_template.py",
+        output_path="run/lasso_{generator_id}.py",
+        ir_fields=("generator_id", "jinja_fit_info"),
+        required_methods=(),
+        description="Entry point for LASSO regression. "
+                    "IMPORTANT: Use the exact structure from the lasso_run reference pattern in the system prompt. "
+                    "CodeScript comes from ir.jinja_fit_info.lasso.CodeScript. "
+                    "Include the Logger class with logconfig_lasso.json config.",
+    ),
+    "pull_run": ArtifactSpec(
+        name="pull_run",
+        legacy_template="templates/pull_run_template.py",
+        output_path="run/pull_{generator_id}.py",
+        ir_fields=("generator_id", "jinja_fit_info"),
+        required_methods=(),
+        description="Entry point for pull distribution. "
+                    "IMPORTANT: Use the exact structure from the pull_run reference pattern in the system prompt. "
+                    "CodeScript comes from ir.jinja_fit_info.pull.CodeScript. "
+                    "Include the Logger class with logconfig_fit.json config.",
+    ),
+    "draw_lh_run": ArtifactSpec(
+        name="draw_lh_run",
+        legacy_template="templates/draw_lh_run_template.py",
+        output_path="run/draw_lh_{generator_id}.py",
+        ir_fields=("generator_id", "jinja_draw_info"),
+        required_methods=(),
+        description="Entry point for likelihood histogram drawing. "
+                    "IMPORTANT: Use the exact structure from the draw_lh_run reference pattern in the system prompt. "
+                    "CodeScript comes from ir.jinja_draw_info.draw_lh.CodeScript[0]. "
+                    "Include the Logger class with logconfig_draw.json config.",
+    ),
+    "dplot_run": ArtifactSpec(
+        name="dplot_run",
+        legacy_template="templates/dplot_run_template.py",
+        output_path="run/dplot_run_{generator_id}.py",
+        ir_fields=("generator_id", "jinja_draw_info"),
+        required_methods=(),
+        description="Entry point for data plotting with ROOT. "
+                    "IMPORTANT: Use the exact structure from the dplot_run reference pattern in the system prompt. "
+                    "CodeScript comes from ir.jinja_draw_info.dplot.CodeScript[0]. "
+                    "Include the Logger class with logconfig_draw.json config.",
+    ),
+    # Code templates (S3-S4)
+    "select": ArtifactSpec(
+        name="select",
+        legacy_template="templates/select_template.py",
+        output_path="rendered_scripts/select_object_{generator_id}.py",
+        ir_fields=("generator_id", "info", "lh_coll", "slit_args_dict",
+                   "binding_point", "initial_parameters", "mw_index", "mw_range"),
+        required_methods=("thread_likelihood", "compile_func", "run", "run_multiprocess"),
+        description="Event selection module. "
+                    "MUST generate PWAFunc with weight methods and Control with run_multiprocess. "
+                    "CRITICAL: ALL vmap calls in BW helpers MUST use out_axes=1 (NOT np.moveaxis). "
+                    "ALL jit() calls MUST include device=self.device.",
+    ),
+    "draw_wt": ArtifactSpec(
+        name="draw_wt",
+        legacy_template="templates/draw_wt_template.py",
+        output_path="rendered_scripts/draw_wt_object_{generator_id}.py",
+        ir_fields=("generator_id", "info", "lh_coll"),
+        required_methods=("thread_likelihood", "compile_func", "run", "run_multiprocess"),
+        description="Weight distribution drawing. "
+                    "MUST generate PWAFunc with weight methods and Control with run_multiprocess. "
+                    "CRITICAL: ALL vmap calls in BW helpers MUST use out_axes=1 (NOT np.moveaxis). "
+                    "ALL jit() calls MUST include device=self.device.",
+    ),
     # S3: Medium templates
     "fit": ArtifactSpec(
         name="fit",

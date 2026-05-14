@@ -161,14 +161,10 @@ class Create_Code(prepare_all_collection.Prepare_All):
             return None
 
     def _generate_run_script(self, ir, artifact_name, module, run_config, data_config, output_path):
-        """Generate a run script via LLM codegen. Returns file content or None on failure."""
+        """Generate a run script via LLM codegen (or golden cache fallback)."""
         try:
             from create_code.codegen.generator import CodeGenerator
             llm = self._get_llm()
-            if llm is None:
-                log.warning(f"[{artifact_name}] No LLM available")
-                return None
-
             gen = CodeGenerator(llm=llm)
             extra = {
                 "module": module,
@@ -183,18 +179,14 @@ class Create_Code(prepare_all_collection.Prepare_All):
                 print(f"  [LLM] {artifact_name} -> {output_path}")
                 return content
         except Exception as e:
-            log.warning(f"[{artifact_name}] LLM generation failed: {e}")
+            log.warning(f"[{artifact_name}] generation failed: {e}")
         return None
 
     def _generate_code_script(self, ir, artifact_name, output_path, extra_context=None):
-        """Generate a code script (CodeTemplate) via LLM codegen. Returns file content or None on failure."""
+        """Generate a code script (CodeTemplate) via LLM codegen (or golden cache fallback)."""
         try:
             from create_code.codegen.generator import CodeGenerator
             llm = self._get_llm()
-            if llm is None:
-                log.warning(f"[{artifact_name}] No LLM available")
-                return None
-
             gen = CodeGenerator(llm=llm)
             content = gen.generate(ir, artifact_name, extra_context=extra_context)
             if content:
@@ -204,7 +196,7 @@ class Create_Code(prepare_all_collection.Prepare_All):
                 print(f"  [LLM] {artifact_name} -> {output_path}")
                 return content
         except Exception as e:
-            log.warning(f"[{artifact_name}] LLM generation failed: {e}")
+            log.warning(f"[{artifact_name}] generation failed: {e}")
         return None
 
     def generate_fit(self):
@@ -212,14 +204,12 @@ class Create_Code(prepare_all_collection.Prepare_All):
         self.mod_info = sum(self.all_mod_info, [])
         self.prepare_all()
 
-        # Build IR once for LLM codegen (shared across all fit modules)
+        # Build IR once for codegen (shared across all fit modules)
         ir = None
-        llm = self._get_llm()
-        if llm is not None:
-            try:
-                ir = _build_ir_from_legacy(self)
-            except Exception as e:
-                log.warning(f"IR build failed: {e}")
+        try:
+            ir = _build_ir_from_legacy(self)
+        except Exception as e:
+            log.warning(f"IR build failed: {e}")
 
         for module in self.jinja_fit_info.keys():
             merged_run = {**self.parameters["base"]["run_config"],
@@ -230,17 +220,17 @@ class Create_Code(prepare_all_collection.Prepare_All):
             self.render_dict.update(data_config=merged_data)
             address = self.jinja_fit_info[module]
 
-            # CodeTemplate: use LLM
+            # CodeTemplate
             code_path = "rendered_scripts/" + address["CodeScript"]
-            if ir is not None and llm is not None:
+            if ir is not None:
                 self._generate_code_script(
                     ir, module, code_path,
                     extra_context={"module": module, "run_config": merged_run, "data_config": merged_data}
                 )
-            # RunTemplate: use LLM
+            # RunTemplate
             run_path = "run/" + address["RunScript"]
             artifact_name = f"{module}_run"
-            if ir is not None and llm is not None:
+            if ir is not None:
                 self._generate_run_script(
                     ir, artifact_name, module, merged_run, merged_data, run_path
                 )
@@ -253,12 +243,10 @@ class Create_Code(prepare_all_collection.Prepare_All):
 
             # Build IR once per mod_info group
             ir = None
-            llm = self._get_llm()
-            if llm is not None:
-                try:
-                    ir = _build_ir_from_legacy(self)
-                except Exception as e:
-                    log.warning(f"IR build failed: {e}")
+            try:
+                ir = _build_ir_from_legacy(self)
+            except Exception as e:
+                log.warning(f"IR build failed: {e}")
 
             for module in self.jinja_draw_info.keys():
                 merged_run = {**self.parameters["base"]["run_config"],
@@ -278,17 +266,17 @@ class Create_Code(prepare_all_collection.Prepare_All):
                 if "LassoResultFile" in address:
                     self.render_dict.update(lasso_result_file=address["LassoResultFile"][n])
 
-                # CodeTemplate: use LLM
+                # CodeTemplate
                 code_path = "rendered_scripts/" + address["CodeScript"][n]
-                if ir is not None and llm is not None:
+                if ir is not None:
                     self._generate_code_script(
                         ir, module, code_path,
                         extra_context={"module": module, "run_config": merged_run, "data_config": merged_data}
                     )
-                # RunTemplate: use LLM
+                # RunTemplate
                 run_path = "run/" + address["RunScript"]
                 artifact_name = f"{module}_run"
-                if ir is not None and llm is not None:
+                if ir is not None:
                     self._generate_run_script(
                         ir, artifact_name, module, merged_run, merged_data, run_path
                     )
@@ -299,11 +287,9 @@ class Create_Code(prepare_all_collection.Prepare_All):
         print("generate_tensor:")
         self.initial_prepare()
         ir = None
-        llm = self._get_llm()
-        if llm is not None:
-            try:
-                ir = _build_ir_from_legacy(self)
-            except Exception as e:
-                log.warning(f"IR build failed: {e}")
-        if ir is not None and llm is not None:
+        try:
+            ir = _build_ir_from_legacy(self)
+        except Exception as e:
+            log.warning(f"IR build failed: {e}")
+        if ir is not None:
             self._generate_code_script(ir, "tensor", "run/RunCacheTensor.py")
