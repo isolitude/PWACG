@@ -277,9 +277,10 @@ class Control(object):
                 pwa_json = json.loads(f.read())
                 mod_info = pwa_json["mod_info"]
                 # mod_index = [n for n, mod in enumerate(mod_info) if re.match(".*"+"_".join(mod["mod"].split("_")[0:-1])+".*"," ".join(mod_name_list))]
-                {% for lh in lh_coll %}
-                mod_index = [n for n, mod in enumerate(mod_info) if re.match(".*" + mod["mod"].replace("_{{lh.tag}}", "") + ".*", " ".join(mod_name_list))]
-                {% endfor %}
+                # {% for lh in lh_coll %}
+                # mod_index = [n for n, mod in enumerate(mod_info) if re.match(".*" + mod["mod"].replace("_{{lh.tag}}", "") + ".*", " ".join(mod_name_list))]
+                # {% endfor %}
+                mod_index = [n for n, mod in enumerate(mod_info) if {% for lh in lh_coll %}mod["mod"].replace("_{{lh.tag}}", "") in mod_name_list{% if not loop.last %} or {% endif %}{% endfor %}]
                 mod_info = [mod_info[i] for i in mod_index]
                 for i in range(len(name_list)):
                     for mod in mod_info:

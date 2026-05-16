@@ -638,6 +638,7 @@ class Prepare_All():
 
             #==================================
             frac_limits_3773= "0.0"
+            # 不加3773时注释掉下面
             if tag == "kk":
                 pattern_3773 = re.compile(r"3773")
                 filtered_frac_3773 = ["np.sum(np.einsum(\"ljk->l\",dplex.dabs({0}))/sum_frac)".format(amp) for amp in temp_frac if pattern_3773.search(amp)]
