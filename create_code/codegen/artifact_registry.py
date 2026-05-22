@@ -37,7 +37,8 @@ ARTIFACTS: dict[str, ArtifactSpec] = {
                     "The module name comes from context.module (e.g. 'fit'). "
                     "Get CodeScript from ir.jinja_fit_info[module].CodeScript, strip '.py' for import. "
                     "Set ALL run_config and data_config key-values from context on args object. "
-                    "The import path must be 'rendered_scripts.<CodeScript without .py>'.",
+                    "The import path must be 'rendered_scripts.<CodeScript without .py>'. "
+                    "CRITICAL: Define Logger class inline in the file (with logconfig_fit.json), do NOT use fit_object.Logger.",
     ),
     "select_run": ArtifactSpec(
         name="select_run",

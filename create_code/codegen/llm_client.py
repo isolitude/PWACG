@@ -8,7 +8,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
 
 try:
     from openai import OpenAI
@@ -16,10 +20,12 @@ except ImportError:
     OpenAI = None  # type: ignore
 
 
-DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
-DEFAULT_MODEL = "deepseek-chat"
-DEFAULT_MAX_TOKENS = 32768
-DEFAULT_TEMPERATURE = 0.0
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
+
+DEFAULT_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "http://192.168.4.194:8000/v1")
+DEFAULT_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+DEFAULT_MAX_TOKENS = int(os.environ.get("DEEPSEEK_MAX_TOKENS", "32768"))
+DEFAULT_TEMPERATURE = float(os.environ.get("DEEPSEEK_TEMPERATURE", "0.0"))
 
 
 def _extract_python_code(content: str) -> str:
@@ -121,7 +127,9 @@ class LLMClient:
         last_error: Optional[Exception] = None
         for attempt in range(max_retries):
             try:
-                resp = self.client.chat.completions.create(**kwargs)
+                print(f"LLM generation attempt {attempt + 1}...")
+                resp = self.client.chat.completions.create(**kwargs, timeout=1200)
+                print(resp)
                 content = resp.choices[0].message.content
                 if content is None:
                     raise RuntimeError("LLM returned empty content")
@@ -131,9 +139,9 @@ class LLMClient:
                 return {"file_content": file_content}
             except Exception as e:
                 last_error = e
+                print(f"LLM attempt {attempt + 1} failed: {type(e).__name__}: {e}")
                 if attempt < max_retries - 1:
-                    import time
-                    time.sleep(2 ** attempt)  # exponential backoff
+                    time.sleep(2 ** attempt)
                 continue
 
         raise RuntimeError(f"LLM generation failed after {max_retries} attempts: {last_error}")
