@@ -88,6 +88,7 @@ class LLMClient:
             self._client = OpenAI(
                 api_key=self.api_key,
                 base_url=self.base_url,
+                max_retries=0,
             )
         return self._client
 
@@ -124,6 +125,9 @@ class LLMClient:
         if response_format:
             kwargs["response_format"] = response_format
 
+        log_dir = Path("llm_io_logs")
+        log_dir.mkdir(exist_ok=True)
+
         last_error: Optional[Exception] = None
         for attempt in range(max_retries):
             try:
@@ -136,6 +140,20 @@ class LLMClient:
                 file_content = _extract_python_code(content)
                 if not file_content:
                     raise RuntimeError("Could not extract Python code from LLM response")
+
+                # Save input/output for inspection
+                ts = int(time.time() * 1000)
+                log_entry = {
+                    "timestamp": ts,
+                    "model": self.model,
+                    "messages": messages,
+                    "raw_response": content,
+                    "extracted_code": file_content,
+                }
+                log_file = log_dir / f"{ts}.json"
+                log_file.write_text(json.dumps(log_entry, ensure_ascii=False, indent=2), encoding="utf-8")
+                print(f"LLM I/O saved to {log_file}")
+
                 return {"file_content": file_content}
             except Exception as e:
                 last_error = e

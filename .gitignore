@@ -132,3 +132,8 @@ venv.bak/
 .claude/
 .llm_cache/
 .vscode/
+
+llm_io_logs/
+
+output.json
+test.ipynb
